@@ -17,6 +17,7 @@ export default function SplashScreen() {
   const currentTourStepRef = useRef<TourStep>(null);
   const alfiRef = useRef<HTMLDivElement>(null);
   const iniciarButtonRef = useRef<HTMLButtonElement>(null);
+  const audioButtonRef = useRef<HTMLButtonElement>(null);
 
   // Sincronizar el ref con el estado
   useEffect(() => {
@@ -92,8 +93,8 @@ export default function SplashScreen() {
 
   // Calcular posición del elemento para el spotlight
   const getElementPosition = (step: TourStep): DOMRect | null => {
-    if (step === "alfi" && alfiRef.current) {
-      return alfiRef.current.getBoundingClientRect();
+    if (step === "alfi" && audioButtonRef.current) {
+      return audioButtonRef.current.getBoundingClientRect();
     }
     if (step === "iniciar" && iniciarButtonRef.current) {
       return iniciarButtonRef.current.getBoundingClientRect();
@@ -381,6 +382,7 @@ export default function SplashScreen() {
                 </AnimatePresence>
 
                 <motion.button
+                  ref={audioButtonRef}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
