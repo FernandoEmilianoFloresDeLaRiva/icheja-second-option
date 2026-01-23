@@ -340,7 +340,9 @@ export default function TourGuiado({ isActive, onComplete, onSkip, currentRoute 
                   break;
                 case "left":
                   top = rect.top + rect.height / 2;
-                  left = Math.max(padding, rect.left - tooltipWidth - tooltipOffset);
+                  // Para el paso de Alfi, mover el tooltip más a la izquierda
+                  const extraLeftOffsetUnit = step.id === "alfi" ? 50 : 0;
+                  left = Math.max(padding, rect.left - tooltipWidth - tooltipOffset - extraLeftOffsetUnit);
                   if (left < padding) {
                     left = Math.min(viewportWidth - tooltipWidth - padding, rect.right + tooltipOffset);
                   }
@@ -486,7 +488,9 @@ export default function TourGuiado({ isActive, onComplete, onSkip, currentRoute 
             break;
           case "left":
             top = rect.top + rect.height / 2;
-            left = Math.max(padding, rect.left - tooltipWidth - tooltipOffset);
+            // Para el paso de Alfi, mover el tooltip más a la izquierda
+            const extraLeftOffset = step.id === "alfi" ? 50 : 0;
+            left = Math.max(padding, rect.left - tooltipWidth - tooltipOffset - extraLeftOffset);
             // Si se sale por la izquierda, ponerlo a la derecha
             if (left < padding) {
               left = Math.min(viewportWidth - tooltipWidth - padding, rect.right + tooltipOffset);
@@ -707,16 +711,16 @@ export default function TourGuiado({ isActive, onComplete, onSkip, currentRoute 
       setHasNavigatedLeft(false);
     }
 
-    // Verificar que el elemento exista antes de reproducir audio
-    const element = document.querySelector(step.selector);
-    if (!element) {
-      // Si el elemento no existe, no reproducir audio y esperar
-      // El usuario puede avanzar manualmente o esperar a que aparezca el elemento
-      return;
-    }
+    // Variable para controlar si ya se reprodujo el audio (evitar duplicados)
+    let audioPlayed = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-    // Esperar un momento para que el elemento se posicione y evitar conflictos con el cancel
-    const timer = setTimeout(() => {
+    // Función para reproducir el audio
+    const playAudio = () => {
+      // Solo reproducir si no se ha reproducido ya
+      if (audioPlayed) return;
+      audioPlayed = true;
+
       hasSpokenRef.current = false;
       const currentStepWhenSpeaking = currentStep; // Capturar el paso actual
       
@@ -762,14 +766,44 @@ export default function TourGuiado({ isActive, onComplete, onSkip, currentRoute 
         // Si no hay audio, marcar como hablado inmediatamente
         hasSpokenRef.current = true;
       }
-    }, 1500); // Aumentar el delay para evitar conflictos
+    };
+
+    // Función para intentar reproducir el audio después de verificar el elemento
+    const tryPlayAudio = (retryCount = 0) => {
+      // Para el primer paso (Alfi), reproducir inmediatamente sin esperar el elemento
+      // ya que es un mensaje de bienvenida
+      if (step.id === "alfi" && currentStep === 0) {
+        playAudio();
+        return;
+      }
+
+      // Para otros pasos, verificar que el elemento exista antes de reproducir audio
+      const element = document.querySelector(step.selector);
+      if (!element) {
+        // Si el elemento no existe, reintentar hasta 10 veces con intervalos de 300ms
+        if (retryCount < 10) {
+          retryTimer = setTimeout(() => tryPlayAudio(retryCount + 1), 300);
+        }
+        return;
+      }
+
+      playAudio();
+    };
+
+    // Esperar un momento para evitar conflictos con el cancel del cambio de location
+    const timer = setTimeout(() => {
+      tryPlayAudio(0);
+    }, 1500); // Delay inicial para evitar conflictos
 
     return () => {
       clearTimeout(timer);
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
       // NO cancelar el audio aquí - solo limpiar el timer
       // El audio se cancelará solo cuando cambie el paso o se desactive el tour
     };
-  }, [currentStep, isActive, speak, TOUR_STEPS, onComplete]);
+  }, [currentStep, isActive, speak, TOUR_STEPS, onComplete, isWelcomeTour, isExerciseTour]);
 
   if (!isActive) {
     return null;

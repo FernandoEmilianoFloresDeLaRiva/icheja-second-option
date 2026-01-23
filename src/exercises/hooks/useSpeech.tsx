@@ -69,6 +69,14 @@ export const useSpeech = () => {
     (text: string, options: SpeechOptions = {}) => {
       if (!window.speechSynthesis) return false;
 
+      // Workaround para bug de Chrome: si las voces no están cargadas, esperar
+      const availableVoices = window.speechSynthesis.getVoices();
+      if (availableVoices.length === 0) {
+        // Las voces aún no están cargadas, reintentar después de un delay
+        setTimeout(() => speak(text, options), 200);
+        return true;
+      }
+
       window.speechSynthesis.cancel();
 
       const utterance = new SpeechSynthesisUtterance(text);
@@ -86,6 +94,14 @@ export const useSpeech = () => {
       utterance.onstart = () => setIsSpeaking(true);
       utterance.onend = () => {
         setIsSpeaking(false);
+        if (options.onEnd) {
+          options.onEnd();
+        }
+      };
+      utterance.onerror = (event) => {
+        console.error("Speech synthesis error:", event.error);
+        setIsSpeaking(false);
+        // Si hay un error, intentar llamar onEnd para no bloquear el flujo
         if (options.onEnd) {
           options.onEnd();
         }
