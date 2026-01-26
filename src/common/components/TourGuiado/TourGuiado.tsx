@@ -45,15 +45,6 @@ interface TourGuiadoProps {
 
 const EXERCISE_TOUR_STEPS: (TourStep & { audioText?: string })[] = [
   {
-    id: "alfi",
-    title: "¡Hola! Soy Alfi",
-    description:
-      "Soy tu asistente virtual. Te acompañaré durante todo tu proceso de alfabetización. Puedes encontrarme aquí en la esquina superior derecha.",
-    selector: '[data-tour="alfi"]',
-    position: "left",
-    audioText: "¡Hola! Soy Alfi, tu asistente virtual. Te acompañaré durante todo tu proceso de alfabetización. Puedes encontrarme aquí en la esquina superior derecha.",
-  },
-  {
     id: "back-button",
     title: "Botón Volver",
     description:
@@ -139,15 +130,6 @@ const EXERCISE_TOUR_STEPS: (TourStep & { audioText?: string })[] = [
 // Pasos base del tour de welcome (sin el paso de navegación)
 const BASE_WELCOME_TOUR_STEPS: (TourStep & { audioText: string })[] = [
   {
-    id: "alfi",
-    title: "¡Hola! Soy Alfi",
-    description:
-      "Soy tu asistente virtual. Te acompañaré durante todo tu proceso de alfabetización. Puedes encontrarme aquí en la esquina superior derecha.",
-    selector: '[data-tour="alfi"]',
-    position: "left",
-    audioText: "¡Hola! Soy Alfi, tu asistente virtual. Te acompañaré durante todo tu proceso de alfabetización. Puedes encontrarme aquí en la esquina superior derecha.",
-  },
-  {
     id: "units-grid",
     title: "Unidades de Aprendizaje",
     description:
@@ -162,6 +144,7 @@ export default function TourGuiado({ isActive, onComplete, onSkip, currentRoute 
   const [currentStep, setCurrentStep] = useState(0);
   const [elementPosition, setElementPosition] = useState<DOMRect | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
+  const [isTooltipReady, setIsTooltipReady] = useState(false);
   const [tooltipDimensions, setTooltipDimensions] = useState(getResponsiveDimensions());
   const overlayRef = useRef<HTMLDivElement>(null);
   const retryCountRef = useRef<number>(0);
@@ -171,6 +154,11 @@ export default function TourGuiado({ isActive, onComplete, onSkip, currentRoute 
   const [hasMoreThan6Units, setHasMoreThan6Units] = useState(false);
   const [hasNavigatedRight, setHasNavigatedRight] = useState(false);
   const [hasNavigatedLeft, setHasNavigatedLeft] = useState(false);
+
+  // Resetear isTooltipReady cuando cambia el paso
+  useEffect(() => {
+    setIsTooltipReady(false);
+  }, [currentStep]);
 
   // Listener para cambios de orientación y resize para actualizar dimensiones responsivas
   useEffect(() => {
@@ -315,89 +303,38 @@ export default function TourGuiado({ isActive, onComplete, onSkip, currentRoute 
               retryCountRef.current = 0;
               setElementPosition(rect);
               // Calcular posición del tooltip con validación de límites
-              const { tooltipOffset, tooltipWidth, tooltipHeight, padding } = tooltipDimensions;
+              const { tooltipWidth, padding } = tooltipDimensions;
               const viewportWidth = window.innerWidth;
-              const viewportHeight = window.innerHeight;
               
               let top = 0;
               let left = 0;
 
-              switch (step.position) {
-                case "top":
-                  top = Math.max(padding, rect.top - tooltipHeight - tooltipOffset);
-                  left = rect.left + rect.width / 2;
-                  left = Math.max(padding + tooltipWidth / 2, left);
-                  left = Math.min(viewportWidth - tooltipWidth / 2 - padding, left);
-                  break;
-                case "bottom":
-                  top = rect.bottom + tooltipOffset;
-                  if (top + tooltipHeight > viewportHeight - padding) {
-                    top = Math.max(padding, rect.top - tooltipHeight - tooltipOffset);
-                  }
-                  left = rect.left + rect.width / 2;
-                  left = Math.max(padding + tooltipWidth / 2, left);
-                  left = Math.min(viewportWidth - tooltipWidth / 2 - padding, left);
-                  break;
-                case "left":
-                  top = rect.top + rect.height / 2;
-                  // Para el paso de Alfi, mover el tooltip más a la izquierda
-                  const extraLeftOffsetUnit = step.id === "alfi" ? 50 : 0;
-                  left = Math.max(padding, rect.left - tooltipWidth - tooltipOffset - extraLeftOffsetUnit);
-                  if (left < padding) {
-                    left = Math.min(viewportWidth - tooltipWidth - padding, rect.right + tooltipOffset);
-                  }
-                  if (top - tooltipHeight / 2 < padding) {
-                    top = padding + tooltipHeight / 2;
-                  }
-                  if (top + tooltipHeight / 2 > viewportHeight - padding) {
-                    top = viewportHeight - tooltipHeight / 2 - padding;
-                  }
-                  break;
-                case "right":
-                  top = rect.top + rect.height / 2;
-                  left = Math.min(viewportWidth - tooltipWidth - padding, rect.right + tooltipOffset);
-                  if (left + tooltipWidth > viewportWidth - padding) {
-                    left = Math.max(padding, rect.left - tooltipWidth - tooltipOffset);
-                  }
-                  if (top - tooltipHeight / 2 < padding) {
-                    top = padding + tooltipHeight / 2;
-                  }
-                  if (top + tooltipHeight / 2 > viewportHeight - padding) {
-                    top = viewportHeight - tooltipHeight / 2 - padding;
-                  }
-                  break;
-                case "center":
-                  top = Math.min(
-                    viewportHeight - tooltipHeight - padding,
-                    Math.max(padding, viewportHeight - 300)
-                  );
-                  left = Math.max(
-                    padding + tooltipWidth / 2,
-                    Math.min(viewportWidth - tooltipWidth / 2 - padding, viewportWidth / 2)
-                  );
-                  break;
-              }
+              // Para unit-1, posicionar en la parte superior de la pantalla, bien separado de la tarjeta
+              top = Math.max(padding, 80); // Posición fija cerca del top del viewport
+              left = rect.left + rect.width / 2;
+              left = Math.max(padding + tooltipWidth / 2, left);
+              left = Math.min(viewportWidth - tooltipWidth / 2 - padding, left);
 
               setTooltipPosition({ top, left });
+              setIsTooltipReady(true);
             } else {
-              // Si no tiene dimensiones, intentar de nuevo
-              if (retryCountRef.current < 20) {
+              // Si no tiene dimensiones, intentar de nuevo (máximo 10 intentos)
+              if (retryCountRef.current < 10) {
                 retryCountRef.current += 1;
-                setTimeout(checkElement, 200);
+                setTimeout(checkElement, 300);
               }
             }
           } else {
-            // Si no se encuentra, intentar de nuevo
-            const maxRetries = 20;
-            if (retryCountRef.current < maxRetries) {
+            // Si no se encuentra, intentar de nuevo (máximo 10 intentos)
+            if (retryCountRef.current < 10) {
               retryCountRef.current += 1;
-              setTimeout(checkElement, 200);
+              setTimeout(checkElement, 300);
             }
           }
         };
         
         // Esperar más tiempo para que el evento se dispare y el atributo se agregue
-        setTimeout(checkElement, 500);
+        setTimeout(checkElement, 600);
         return;
       }
 
@@ -536,6 +473,7 @@ export default function TourGuiado({ isActive, onComplete, onSkip, currentRoute 
         }
 
         setTooltipPosition({ top, left });
+        setIsTooltipReady(true);
       } else {
         // Si no tiene dimensiones, intentar de nuevo en el siguiente frame
         requestAnimationFrame(updateElementPosition);
@@ -545,15 +483,22 @@ export default function TourGuiado({ isActive, onComplete, onSkip, currentRoute 
     // Resetear contador de reintentos cuando cambia el paso
     retryCountRef.current = 0;
 
-    // Para el paso de unidad 1, esperar más tiempo para que el evento se dispare y el atributo se agregue
-    const initialDelay = TOUR_STEPS[currentStep]?.id === "unit-1" ? 800 : 500;
+    // Determinar el delay inicial según el tipo de paso y tour
+    let initialDelay = 500;
+    if (TOUR_STEPS[currentStep]?.id === "unit-1") {
+      initialDelay = 800;
+    } else if (isExerciseTour && currentStep === 0) {
+      // Para el primer paso del tour de ejercicios, dar más tiempo para la transición de página
+      initialDelay = 1000;
+    }
     
     // Esperar un momento para que el DOM se renderice completamente
-    // Aumentar el delay inicial para dar tiempo a que todos los componentes se rendericen
     const timer = setTimeout(updateElementPosition, initialDelay);
-    // También ejecutar después de un delay más corto (solo si no es unit-1)
-    if (TOUR_STEPS[currentStep]?.id !== "unit-1") {
-      setTimeout(updateElementPosition, 200);
+    
+    // Para el tour de ejercicios, recalcular después de un delay adicional para asegurar estabilidad
+    let recalculateTimer: ReturnType<typeof setTimeout> | null = null;
+    if (isExerciseTour) {
+      recalculateTimer = setTimeout(updateElementPosition, initialDelay + 500);
     }
 
     window.addEventListener("resize", updateElementPosition);
@@ -561,10 +506,13 @@ export default function TourGuiado({ isActive, onComplete, onSkip, currentRoute 
 
     return () => {
       clearTimeout(timer);
+      if (recalculateTimer) {
+        clearTimeout(recalculateTimer);
+      }
       window.removeEventListener("resize", updateElementPosition);
       window.removeEventListener("scroll", updateElementPosition, true);
     };
-  }, [currentStep, isActive, tooltipDimensions]);
+  }, [currentStep, isActive, tooltipDimensions, isExerciseTour]);
 
   const handleNext = () => {
     // Cancelar el audio si está reproduciéndose
@@ -622,10 +570,10 @@ export default function TourGuiado({ isActive, onComplete, onSkip, currentRoute 
   
   // Ya no necesitamos este useEffect - las variables hasNavigatedRight y hasNavigatedLeft se resetean en el useEffect de audio
   
-  // Cancelar audio cuando cambia el paso (solo si realmente cambió, no cuando isSpeaking cambia)
+  // Cancelar audio cuando cambia el paso (solo si realmente cambió y el paso anterior no era -1)
   useEffect(() => {
-    if (isActive && (isWelcomeTour || isExerciseTour) && previousStepRef.current !== currentStep && previousStepRef.current !== -1) {
-      // Solo cancelar si realmente cambió el paso (no cuando isSpeaking cambia)
+    // Solo cancelar si cambiamos de un paso válido a otro (no en la inicialización)
+    if (isActive && (isWelcomeTour || isExerciseTour) && previousStepRef.current !== currentStep && previousStepRef.current >= 0) {
       cancel();
     }
     previousStepRef.current = currentStep;
@@ -713,7 +661,6 @@ export default function TourGuiado({ isActive, onComplete, onSkip, currentRoute 
 
     // Variable para controlar si ya se reprodujo el audio (evitar duplicados)
     let audioPlayed = false;
-    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     // Función para reproducir el audio
     const playAudio = () => {
@@ -768,40 +715,14 @@ export default function TourGuiado({ isActive, onComplete, onSkip, currentRoute 
       }
     };
 
-    // Función para intentar reproducir el audio después de verificar el elemento
-    const tryPlayAudio = (retryCount = 0) => {
-      // Para el primer paso (Alfi), reproducir inmediatamente sin esperar el elemento
-      // ya que es un mensaje de bienvenida
-      if (step.id === "alfi" && currentStep === 0) {
-        playAudio();
-        return;
-      }
-
-      // Para otros pasos, verificar que el elemento exista antes de reproducir audio
-      const element = document.querySelector(step.selector);
-      if (!element) {
-        // Si el elemento no existe, reintentar hasta 10 veces con intervalos de 300ms
-        if (retryCount < 10) {
-          retryTimer = setTimeout(() => tryPlayAudio(retryCount + 1), 300);
-        }
-        return;
-      }
-
-      playAudio();
-    };
-
-    // Esperar un momento para evitar conflictos con el cancel del cambio de location
+    // Reproducir audio directamente después de un delay
+    // Ya no verificamos si el elemento existe porque eso puede fallar
     const timer = setTimeout(() => {
-      tryPlayAudio(0);
-    }, 1500); // Delay inicial para evitar conflictos
+      playAudio();
+    }, 1000);
 
     return () => {
       clearTimeout(timer);
-      if (retryTimer) {
-        clearTimeout(retryTimer);
-      }
-      // NO cancelar el audio aquí - solo limpiar el timer
-      // El audio se cancelará solo cuando cambie el paso o se desactive el tour
     };
   }, [currentStep, isActive, speak, TOUR_STEPS, onComplete, isWelcomeTour, isExerciseTour]);
 
@@ -897,14 +818,14 @@ export default function TourGuiado({ isActive, onComplete, onSkip, currentRoute 
           <rect
             width="100%"
             height="100%"
-            fill="rgba(0, 0, 0, 0.85)"
+            fill="rgba(0, 0, 0, 0.30)"
             mask={`url(#spotlight-mask-${currentStep})`}
             style={{ mixBlendMode: "normal" }}
           />
         </svg>
 
         {/* Tooltip con información del paso */}
-        {currentStepData && (
+        {currentStepData && isTooltipReady && (
           <motion.div
             key={currentStep}
             initial={{ opacity: 0, scale: 0.9, y: 20 }}

@@ -12,12 +12,10 @@ import ResultsView from "../../../../results/views/ResultsView";
 import SettingsPage from "../../../../settings/pages/WelcomePage";
 import WelcomePage from "../../../../welcome/pages/WelcomePage";
 import SplashView from "../../../../splash/views/SplashView";
-import VideoIntroView from "../../../../splash/views/VideoIntroView";
 
 export const ROUTER_CONFIG = {
   routes: [
-    new RouterItem("/", () => <VideoIntroView />),
-    new RouterItem("/splash", () => <SplashView />),
+    new RouterItem("/", () => <SplashView />),
     new RouterItem("/exercises", () => (
       <AppLayout>
         <ExerciseViews />

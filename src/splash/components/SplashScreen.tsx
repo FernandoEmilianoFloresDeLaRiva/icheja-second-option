@@ -24,13 +24,58 @@ export default function SplashScreen() {
     currentTourStepRef.current = currentTourStep;
   }, [currentTourStep]);
 
-  // Activar el tour automáticamente al cargar la página
+  // Función para reproducir audio del paso actual
+  const playStepAudio = (step: TourStep) => {
+    if (step === "alfi") {
+      hasInteractedWithAlfiRef.current = true;
+      speak("Hola soy Alfi, te acompañaré en tu proceso de alfabetización. Haz clic en mí o en el botón de audio para escuchar mi presentación.");
+    } else if (step === "iniciar") {
+      speak("Presiona el botón Iniciar para comenzar tu aprendizaje. Te guiaré con un tour por la aplicación.");
+    }
+  };
+
+  // Activar el tour automáticamente al cargar la página y reproducir primer audio
   useEffect(() => {
-    // Activar el tour después de un pequeño delay para que el DOM se renderice
-    const timer = setTimeout(() => {
+    let mounted = true;
+    
+    const startTour = async () => {
+      // Esperar a que las voces estén disponibles
+      const waitForVoices = () => {
+        return new Promise<void>((resolve) => {
+          const voices = window.speechSynthesis.getVoices();
+          if (voices.length > 0) {
+            resolve();
+          } else {
+            window.speechSynthesis.onvoiceschanged = () => {
+              resolve();
+            };
+            // Timeout de seguridad
+            setTimeout(resolve, 2000);
+          }
+        });
+      };
+      
+      await waitForVoices();
+      
+      if (!mounted) return;
+      
+      // Activar el paso 1
       setCurrentTourStep("alfi");
-    }, 1000);
-    return () => clearTimeout(timer);
+      
+      // Reproducir audio después de un pequeño delay
+      setTimeout(() => {
+        if (mounted) {
+          playStepAudio("alfi");
+        }
+      }, 800);
+    };
+    
+    const timer = setTimeout(startTour, 500);
+    
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+    };
   }, []);
 
   const handleStart = (e?: React.MouseEvent<HTMLButtonElement>) => {
@@ -568,7 +613,7 @@ export default function SplashScreen() {
                 <rect
                   width="100%"
                   height="100%"
-                  fill="rgba(0, 0, 0, 0.85)"
+                  fill="rgba(0, 0, 0, 0.30)"
                   mask={`url(#splash-spotlight-mask-${currentTourStep})`}
                   style={{ mixBlendMode: "normal" }}
                 />
@@ -647,6 +692,10 @@ export default function SplashScreen() {
                       onClick={() => {
                         if (currentTourStep === "alfi") {
                           setCurrentTourStep("iniciar");
+                          // Reproducir audio del paso 2 después de un pequeño delay
+                          setTimeout(() => {
+                            playStepAudio("iniciar");
+                          }, 500);
                         } else {
                           setCurrentTourStep(null);
                         }

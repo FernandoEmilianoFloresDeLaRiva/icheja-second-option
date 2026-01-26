@@ -100,21 +100,23 @@ export default function ExerciseContent({ unitId }: ExerciseContentProps) {
           className="flex flex-col h-full min-h-0 overflow-hidden"
         >
           {/* Indicador de progreso - Ultra compacto */}
-          <div data-tour="progress-indicator" className="flex items-center gap-1.5 mb-1 flex-shrink-0 bg-white rounded-lg p-1.5 shadow-sm border border-gray-200">
-            <div className="px-3 py-1 bg-gradient-to-r from-[#009887] to-[#00B8A9] text-white rounded-lg text-sm font-bold shadow-md min-w-[60px] text-center">
-              {exerciseNumber}/{totalExercises}
+          <div className="flex items-center gap-1.5 mb-1 flex-shrink-0 bg-white rounded-lg p-1.5 shadow-sm border border-gray-200">
+            <div data-tour="progress-indicator" className="flex items-center gap-1.5">
+              <div className="px-3 py-1 bg-gradient-to-r from-[#009887] to-[#00B8A9] text-white rounded-lg text-sm font-bold shadow-md min-w-[60px] text-center">
+                {exerciseNumber}/{totalExercises}
+              </div>
+              <div className="w-[200px] h-2.5 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-[#009887] to-[#00B8A9] rounded-full shadow-sm"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(exerciseNumber / totalExercises) * 100}%` }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                />
+              </div>
+              <span className="text-xs font-semibold text-gray-600 whitespace-nowrap hidden lg:inline">
+                Ejercicio {exerciseNumber} de {totalExercises}
+              </span>
             </div>
-            <div className="flex-1 max-w-[200px] h-2.5 bg-gray-200 rounded-full overflow-hidden shadow-inner">
-              <motion.div
-                className="h-full bg-gradient-to-r from-[#009887] to-[#00B8A9] rounded-full shadow-sm"
-                initial={{ width: 0 }}
-                animate={{ width: `${(exerciseNumber / totalExercises) * 100}%` }}
-                transition={{ duration: 0.4, ease: "easeOut" }}
-              />
-            </div>
-            <span className="text-xs font-semibold text-gray-600 whitespace-nowrap hidden lg:inline">
-              Ejercicio {exerciseNumber} de {totalExercises}
-            </span>
           </div>
 
           {/* Layout principal: Header e Instrucciones a la izquierda, Contenido a la derecha */}
