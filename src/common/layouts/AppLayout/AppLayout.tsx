@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { AnimatePresence } from "framer-motion";
 import SideBar from "../../components/SideBar/SideBar";
@@ -14,6 +14,25 @@ interface AppLayoutProps {
 function AppLayout({ children }: AppLayoutProps) {
   const [location] = useLocation();
   const [showTour, setShowTour] = useState(false);
+  const previousLocationRef = useRef<string | null>(null);
+  const tourWasActiveRef = useRef(false);
+
+  // Escuchar evento personalizado para iniciar tour manualmente (desde Alfi)
+  useEffect(() => {
+    const handleStartTour = () => {
+      setShowTour(true);
+    };
+
+    window.addEventListener("start-tour", handleStartTour);
+    return () => {
+      window.removeEventListener("start-tour", handleStartTour);
+    };
+  }, []);
+
+  // Rastrear si el tour estaba activo
+  useEffect(() => {
+    tourWasActiveRef.current = showTour;
+  }, [showTour]);
 
   useEffect(() => {
     // Verificar si estamos en una ruta que debe mostrar el tour
@@ -24,15 +43,51 @@ function AppLayout({ children }: AppLayoutProps) {
     const currentIsExerciseRoute = location === "/exercises" || location.startsWith("/exercise/") || (location === "/units" && currentHasUnitId);
     const isTourRoute = isWelcomeRoute || currentIsExerciseRoute;
     
-    if (!isTourRoute) {
+    // Si el tour estaba activo en la ruta anterior y cambiamos de ruta, marcar como visto
+    if (tourWasActiveRef.current && previousLocationRef.current !== null && previousLocationRef.current !== location) {
+      // Determinar qué tour estaba activo basándose en la ruta anterior
+      const prevWasWelcome = previousLocationRef.current === "/welcome";
+      const prevUrlParams = new URLSearchParams(window.location.search);
+      const prevHadUnitId = prevUrlParams.has("unitId");
+      const prevWasExercise = previousLocationRef.current === "/exercises" || 
+                              previousLocationRef.current?.startsWith("/exercise/") || 
+                              (previousLocationRef.current === "/units" && prevHadUnitId);
+      
+      if (prevWasWelcome) {
+        sessionStorage.setItem("tour-shown-welcome", "true");
+      }
+      if (prevWasExercise) {
+        sessionStorage.setItem("tour-shown-exercises", "true");
+      }
       setShowTour(false);
+    }
+    
+    // Actualizar la referencia de la ubicación anterior
+    previousLocationRef.current = location;
+    
+    if (!isTourRoute) {
+      return;
+    }
+
+    // Determinar la clave de sessionStorage según el tipo de ruta
+    // - "tour-shown-welcome" para la vista de unidades (/welcome)
+    // - "tour-shown-exercises" para cuando se entra a una unidad (/units?unitId=X)
+    const tourShownKey = currentIsExerciseRoute ? "tour-shown-exercises" : "tour-shown-welcome";
+    
+    // Verificar si el tour ya se mostró en esta sesión para este tipo de ruta
+    const tourAlreadyShown = sessionStorage.getItem(tourShownKey) === "true";
+    
+    // Verificar si se solicitó iniciar el tour manualmente (desde Alfi)
+    const manualTourRequest = sessionStorage.getItem("start-tour") === "true";
+    
+    if (tourAlreadyShown && !manualTourRequest) {
+      // El tour ya se mostró y no hay solicitud manual, no mostrarlo
       return;
     }
 
     // Activar el tour automáticamente según la ruta
-    // Siempre se activa al entrar en /welcome o en rutas de ejercicios
     const timer = setTimeout(() => {
-      // Limpiar sessionStorage si existe (por si viene de navegación previa)
+      // Limpiar flags de solicitud manual
       sessionStorage.removeItem("start-tour");
       sessionStorage.removeItem("continue-tour-exercises");
       setShowTour(true);
@@ -45,17 +100,33 @@ function AppLayout({ children }: AppLayoutProps) {
 
 
   const handleTourComplete = () => {
-    // Simplemente ocultar el tour cuando se completa
+    // Marcar el tour como completado para este tipo de ruta
+    const currentUrlParams = new URLSearchParams(window.location.search);
+    const currentHasUnitId = currentUrlParams.has("unitId");
+    const isWelcomeRoute = location === "/welcome";
+    const currentIsExerciseRoute = location === "/exercises" || location.startsWith("/exercise/") || (location === "/units" && currentHasUnitId);
+    const tourShownKey = currentIsExerciseRoute ? "tour-shown-exercises" : (isWelcomeRoute ? "tour-shown-welcome" : "tour-shown-exercises");
+    sessionStorage.setItem(tourShownKey, "true");
+    
+    // Ocultar el tour
     setShowTour(false);
-    // Limpiar sessionStorage si existe
+    // Limpiar sessionStorage de flags temporales
     sessionStorage.removeItem("start-tour");
     sessionStorage.removeItem("continue-tour-exercises");
   };
 
   const handleTourSkip = () => {
-    // Simplemente ocultar el tour cuando se omite
+    // Marcar el tour como visto (aunque se haya saltado) para este tipo de ruta
+    const currentUrlParams = new URLSearchParams(window.location.search);
+    const currentHasUnitId = currentUrlParams.has("unitId");
+    const isWelcomeRoute = location === "/welcome";
+    const currentIsExerciseRoute = location === "/exercises" || location.startsWith("/exercise/") || (location === "/units" && currentHasUnitId);
+    const tourShownKey = currentIsExerciseRoute ? "tour-shown-exercises" : (isWelcomeRoute ? "tour-shown-welcome" : "tour-shown-exercises");
+    sessionStorage.setItem(tourShownKey, "true");
+    
+    // Ocultar el tour
     setShowTour(false);
-    // Limpiar sessionStorage si existe
+    // Limpiar sessionStorage de flags temporales
     sessionStorage.removeItem("start-tour");
     sessionStorage.removeItem("continue-tour-exercises");
   };
