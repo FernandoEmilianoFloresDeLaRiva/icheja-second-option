@@ -122,7 +122,7 @@ const EXERCISE_TOUR_STEPS: (TourStep & { audioText?: string })[] = [
     description:
       "Usa estos botones para ir al ejercicio anterior o siguiente. El botón se desactiva cuando estás en el primer o último ejercicio.",
     selector: '[data-tour="nav-previous-button"], [data-tour="nav-next-button"]',
-    position: "top",
+    position: "left",
     audioText: "Usa estos botones para ir al ejercicio anterior o siguiente. El botón se desactiva cuando estás en el primer o último ejercicio.",
   },
 ];
@@ -423,14 +423,24 @@ export default function TourGuiado({ isActive, onComplete, onSkip, currentRoute 
             left = Math.max(padding + tooltipWidth / 2, left);
             left = Math.min(viewportWidth - tooltipWidth / 2 - padding, left);
             break;
-          case "left":
+          case "left": {
             top = rect.top + rect.height / 2;
+            // Para el paso de navegación, mover el tooltip más arriba para que no se salga de pantalla
+            if (step.id === "navigation-buttons") {
+              top = rect.top - tooltipHeight / 2 - 30; // Posicionar más arriba del centro del elemento
+            }
             // Para el paso de Alfi, mover el tooltip más a la izquierda
             const extraLeftOffset = step.id === "alfi" ? 50 : 0;
-            left = Math.max(padding, rect.left - tooltipWidth - tooltipOffset - extraLeftOffset);
+            left = Math.max(
+              padding,
+              rect.left - tooltipWidth - tooltipOffset - extraLeftOffset,
+            );
             // Si se sale por la izquierda, ponerlo a la derecha
             if (left < padding) {
-              left = Math.min(viewportWidth - tooltipWidth - padding, rect.right + tooltipOffset);
+              left = Math.min(
+                viewportWidth - tooltipWidth - padding,
+                rect.right + tooltipOffset,
+              );
             }
             // Asegurar que no se salga por arriba/abajo
             if (top - tooltipHeight / 2 < padding) {
@@ -440,15 +450,19 @@ export default function TourGuiado({ isActive, onComplete, onSkip, currentRoute 
               top = viewportHeight - tooltipHeight / 2 - padding;
             }
             break;
+          }
           case "right":
             top = rect.top + rect.height / 2;
             left = Math.min(
               viewportWidth - tooltipWidth - padding,
-              rect.right + tooltipOffset
+              rect.right + tooltipOffset,
             );
             // Si se sale por la derecha, ponerlo a la izquierda
             if (left + tooltipWidth > viewportWidth - padding) {
-              left = Math.max(padding, rect.left - tooltipWidth - tooltipOffset);
+              left = Math.max(
+                padding,
+                rect.left - tooltipWidth - tooltipOffset,
+              );
             }
             // Asegurar que no se salga por arriba/abajo
             if (top - tooltipHeight / 2 < padding) {
@@ -463,11 +477,14 @@ export default function TourGuiado({ isActive, onComplete, onSkip, currentRoute 
             // pero asegurar que quede dentro de la pantalla
             top = Math.min(
               viewportHeight - tooltipHeight - padding,
-              Math.max(padding, viewportHeight - 300)
+              Math.max(padding, viewportHeight - 300),
             );
             left = Math.max(
               padding + tooltipWidth / 2,
-              Math.min(viewportWidth - tooltipWidth / 2 - padding, viewportWidth / 2)
+              Math.min(
+                viewportWidth - tooltipWidth / 2 - padding,
+                viewportWidth / 2,
+              ),
             );
             break;
         }
@@ -741,6 +758,18 @@ export default function TourGuiado({ isActive, onComplete, onSkip, currentRoute 
     const padding = 20; // Padding adicional alrededor del elemento
     const minSize = 100; // Tamaño mínimo para elementos muy pequeños
     
+    // Para el paso de navigation-buttons, siempre usar rectángulo que encierre ambos botones
+    if (currentStepData?.id === "navigation-buttons") {
+      return {
+        type: 'rect' as const,
+        x: elementPosition.left - padding,
+        y: elementPosition.top - padding,
+        width: elementPosition.width + padding * 2,
+        height: elementPosition.height + padding * 2,
+        rx: 16, // Radio de esquinas redondeadas
+      };
+    }
+
     // Para elementos pequeños (botones, iconos), usar círculo más grande
     // Para elementos grandes (áreas), usar forma rectangular/elíptica
     const isSmallElement = elementPosition.width < 150 || elementPosition.height < 150;
