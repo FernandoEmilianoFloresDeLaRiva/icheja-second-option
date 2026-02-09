@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "Montserrat";
+  src: url("/src/assets/fonts/Montserrat-VariableFont_wght.ttf");
+  font-weight: normal 500;
+  font-style: normal;
+}
+
+body {
+  margin: 0;
+  max-width: 100vw;
+  min-height: 100vh;
+  scroll-behavior: smooth;
+  font-family: "Montserrat", sans-serif;
+}
+
+/* Animaciones globales mejoradas */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Transiciones suaves para elementos interactivos */
+button, a {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Mejora de rendimiento para animaciones */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

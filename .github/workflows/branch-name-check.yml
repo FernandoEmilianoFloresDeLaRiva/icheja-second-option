@@ -1,0 +1,33 @@
+name: Validate Branch Name
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  branch-name-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check branch naming convention
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = context.payload.pull_request.head.ref;
+
+            const allowed = [
+              /^feature\/[a-z0-9._-]+$/,
+              /^bugfix\/[a-z0-9._-]+$/,
+              /^hotfix\/[a-z0-9._-]+$/,
+              /^release\/\d+\.\d+\.\d+$/,
+              /^development$/,
+              /^QA$/,
+              /^master$/
+            ];
+
+            const isAllowed = allowed.some(regex => regex.test(branch));
+
+            if (!isAllowed) {
+              throw new Error(`❌ Nombre de rama inválido: "${branch}"\nDebes usar uno de estos formatos: feature/<descripcion>, bugfix/<descripcion>, hotfix/<descripcion>, release/<version>`);
+            }
+            console.log(`✔ Nombre de rama válido: ${branch}`);
