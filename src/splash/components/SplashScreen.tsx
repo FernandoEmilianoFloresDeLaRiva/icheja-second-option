@@ -18,6 +18,7 @@ export default function SplashScreen() {
   const alfiRef = useRef<HTMLDivElement>(null);
   const iniciarButtonRef = useRef<HTMLButtonElement>(null);
   const audioButtonRef = useRef<HTMLButtonElement>(null);
+  const [elementPosition, setElementPosition] = useState<DOMRect | null>(null);
 
   // Sincronizar el ref con el estado
   useEffect(() => {
@@ -59,13 +60,13 @@ export default function SplashScreen() {
       
       if (!mounted) return;
       
-      // Activar el paso 1
-      setCurrentTourStep("alfi");
+      // Activar el paso 1 - directo al botón Iniciar
+      setCurrentTourStep("iniciar");
       
       // Reproducir audio después de un pequeño delay
       setTimeout(() => {
         if (mounted) {
-          playStepAudio("alfi");
+          playStepAudio("iniciar");
         }
       }, 800);
     };
@@ -136,18 +137,39 @@ export default function SplashScreen() {
     };
   }, [cancel]);
 
-  // Calcular posición del elemento para el spotlight
-  const getElementPosition = (step: TourStep): DOMRect | null => {
-    if (step === "alfi" && audioButtonRef.current) {
-      return audioButtonRef.current.getBoundingClientRect();
-    }
-    if (step === "iniciar" && iniciarButtonRef.current) {
-      return iniciarButtonRef.current.getBoundingClientRect();
-    }
-    return null;
-  };
+  // Actualizar constantemente la posición del elemento para que el spotlight siga al botón durante el pulso
+  useEffect(() => {
+    if (!currentTourStep) return;
 
-  const elementPosition = currentTourStep ? getElementPosition(currentTourStep) : null;
+    let animationFrameId: number;
+    
+    const updatePosition = () => {
+      const getElementPosition = (step: TourStep): DOMRect | null => {
+        if (step === "alfi" && audioButtonRef.current) {
+          return audioButtonRef.current.getBoundingClientRect();
+        }
+        if (step === "iniciar" && iniciarButtonRef.current) {
+          return iniciarButtonRef.current.getBoundingClientRect();
+        }
+        return null;
+      };
+
+      const newPosition = getElementPosition(currentTourStep);
+      if (newPosition) {
+        setElementPosition(newPosition);
+      }
+      
+      animationFrameId = requestAnimationFrame(updatePosition);
+    };
+
+    updatePosition();
+
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, [currentTourStep]);
 
   // Variantes de animación para el contenedor principal
   const containerVariants = {
@@ -193,17 +215,6 @@ export default function SplashScreen() {
       ease: "easeInOut",
     },
   };
-
-  // Calcular spotlight - hacerlo más grande para asegurar que cubra completamente el elemento
-  const spotlightRadius = elementPosition
-    ? Math.max(elementPosition.width, elementPosition.height) / 2 + 50
-    : 0;
-  const spotlightX = elementPosition
-    ? elementPosition.left + elementPosition.width / 2
-    : 0;
-  const spotlightY = elementPosition
-    ? elementPosition.top + elementPosition.height / 2
-    : 0;
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-gray-50 via-pink-50/30 to-gray-50 relative overflow-hidden">
@@ -343,11 +354,20 @@ export default function SplashScreen() {
                   isolation: currentTourStep === "iniciar" ? "isolate" : "auto",
                   pointerEvents: "auto",
                 }}
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: isSpeaking ? 0.6 : 1, y: 0 }}
+                initial={{ opacity: 0 }}
+                animate={{
+                  opacity: isSpeaking ? 0.6 : 1,
+                  // Efecto de pulso más intenso cuando está en tour - más rápido y constante
+                  scale: currentTourStep === "iniciar" && !isSpeaking ? [1, 1.16, 1] : 1,
+                }}
                 transition={{
-                  duration: 0.6,
-                  delay: 0.5,
+                  opacity: { duration: 0.6, delay: 0.5 },
+                  // Configuración del pulso - más intenso y siempre activo cuando está en tour
+                  scale: {
+                    duration: 1.2,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  },
                 }}
                 whileHover={
                   !isSpeaking
@@ -598,12 +618,14 @@ export default function SplashScreen() {
                   <mask id={`splash-spotlight-mask-${currentTourStep}`}>
                     {/* Todo el fondo es blanco (visible) */}
                     <rect width="100%" height="100%" fill="white" />
-                    {/* El círculo del spotlight es negro (transparente/invisible) */}
-                    {elementPosition && spotlightRadius > 0 && (
-                      <circle
-                        cx={spotlightX}
-                        cy={spotlightY}
-                        r={spotlightRadius}
+                    {/* El rectángulo del spotlight es negro (transparente/invisible) */}
+                    {elementPosition && (
+                      <rect
+                        x={elementPosition.left - 25}
+                        y={elementPosition.top - 25}
+                        width={elementPosition.width + 50}
+                        height={elementPosition.height + 50}
+                        rx={50}
                         fill="black"
                       />
                     )}
@@ -619,119 +641,6 @@ export default function SplashScreen() {
                 />
               </svg>
             </motion.div>
-
-            {/* Tooltip con instrucciones */}
-            {elementPosition && (
-              <motion.div
-                key={currentTourStep}
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: -20 }}
-                className="fixed z-[9999]"
-                style={{
-                  pointerEvents: "auto",
-                  top:
-                    currentTourStep === "alfi"
-                      ? `${elementPosition.top + elementPosition.height + 30}px`
-                      : `${elementPosition.bottom + 30}px`,
-                  left:
-                    currentTourStep === "alfi"
-                      ? `${elementPosition.left + elementPosition.width / 2}px`
-                      : `${elementPosition.left + elementPosition.width / 2}px`,
-                  transform: "translateX(-50%)",
-                  maxWidth: "400px",
-                  minWidth: "320px",
-                }}
-              >
-                <div
-                  className="bg-white rounded-2xl shadow-2xl p-6 relative"
-                  style={{
-                    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
-                  }}
-                >
-                  {/* Indicador de paso */}
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-sm"
-                        style={{ backgroundColor: theme.colors.primary.pink }}
-                      >
-                        {currentTourStep === "alfi" ? 1 : 2}
-                      </div>
-                      <span className="text-sm text-gray-500 font-medium">
-                        {currentTourStep === "alfi" ? "1 de 2" : "2 de 2"}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => setCurrentTourStep(null)}
-                      className="text-gray-400 hover:text-gray-600 transition-colors text-xl font-bold"
-                      aria-label="Cerrar tour"
-                    >
-                      ×
-                    </button>
-                  </div>
-
-                  {/* Título y descripción */}
-                  <h3
-                    className="text-2xl font-bold mb-3"
-                    style={{ color: theme.colors.primary.pink }}
-                  >
-                    {currentTourStep === "alfi"
-                      ? "¡Hola! Soy Alfi"
-                      : "Botón Iniciar"}
-                  </h3>
-                  <p className="text-gray-700 text-base leading-relaxed mb-6">
-                    {currentTourStep === "alfi"
-                      ? "Haz clic en mí o en el botón de audio para escuchar mi presentación. Te guiaré en tu proceso de alfabetización."
-                      : "Presiona este botón para comenzar tu aprendizaje. Si ya escuchaste a Alfi, verás un tour guiado de la aplicación."}
-                  </p>
-
-                  {/* Botón de acción */}
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => {
-                        if (currentTourStep === "alfi") {
-                          setCurrentTourStep("iniciar");
-                          // Reproducir audio del paso 2 después de un pequeño delay
-                          setTimeout(() => {
-                            playStepAudio("iniciar");
-                          }, 500);
-                        } else {
-                          setCurrentTourStep(null);
-                        }
-                      }}
-                      className="px-6 py-2.5 rounded-lg font-semibold text-white transition-all hover:opacity-90"
-                      style={{ backgroundColor: theme.colors.primary.pink }}
-                    >
-                      {currentTourStep === "alfi" ? "Siguiente" : "Entendido"}
-                    </button>
-                  </div>
-
-                  {/* Flecha apuntando al elemento */}
-                  <motion.div
-                    className="absolute"
-                    style={{
-                      top: currentTourStep === "alfi" ? "-10px" : "-10px",
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                    }}
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: 0.2 }}
-                  >
-                    <div
-                      className="w-0 h-0"
-                      style={{
-                        borderLeft: "10px solid transparent",
-                        borderRight: "10px solid transparent",
-                        borderBottom: "10px solid white",
-                        borderTop: "none",
-                      }}
-                    />
-                  </motion.div>
-                </div>
-              </motion.div>
-            )}
           </>
         )}
       </AnimatePresence>

@@ -1,7 +1,6 @@
 import {
   ChevronLeft,
   ChevronRight,
-  Edit3,
   Square,
   Volume2,
   Maximize2,
@@ -49,12 +48,44 @@ export default function ExerciseContent({ unitId }: ExerciseContentProps) {
 
   const [isFullscreenAudio, setIsFullscreenAudio] = useState(false);
   const [isFullscreenDrawing, setIsFullscreenDrawing] = useState(false);
+  const [isTourActive, setIsTourActive] = useState(false);
 
   // Cerrar modales cuando cambia el ejercicio
   useEffect(() => {
     setIsFullscreenAudio(false);
     setIsFullscreenDrawing(false);
   }, [exercise?.title]);
+
+  // Escuchar eventos del tour para aplicar efecto de pulso
+  useEffect(() => {
+    const handleTourStepChange = (event: Event) => {
+      const customEvent = event as CustomEvent<{ stepId: string | null }>;
+      const { stepId } = customEvent.detail;
+      setIsTourActive(stepId === "exercise-content-area");
+    };
+    
+    window.addEventListener('tour-step-changed', handleTourStepChange);
+    
+    return () => {
+      window.removeEventListener('tour-step-changed', handleTourStepChange);
+    };
+  }, []);
+
+  // Reproducir instrucciones cuando se abre el canvas de dibujo
+  useEffect(() => {
+    if (isFullscreenDrawing) {
+      // Esperar un momento para que se abra el modal
+      const timer = setTimeout(() => {
+        const voiceContent = `${exercise?.title}. ${exercise?.content.content}`;
+        speak(voiceContent, {
+          lang: "es-MX",
+          rate: 0.9,
+        });
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isFullscreenDrawing, exercise?.title, exercise?.content.content, speak]);
 
   const handleSaveDrawing = (imageData: string) => {
     console.log("Dibujo guardado:", imageData);
@@ -188,26 +219,24 @@ export default function ExerciseContent({ unitId }: ExerciseContentProps) {
                 default:
                   return (
                     <>
-                      {/* Botón para abrir dibujo en pantalla completa - arriba derecha */}
-                      {!exercise?.isAudioExercise && (
-                        <motion.button
-                          data-tour="fullscreen-drawing-button"
-                          onClick={() => setIsFullscreenDrawing(true)}
-                          className="absolute top-4 right-4 w-16 h-16 rounded-2xl transition-all shadow-2xl bg-gradient-to-br from-[#009887] to-[#00B8A9] text-white hover:from-[#008577] hover:to-[#009887] z-50 flex items-center justify-center border-2 border-white"
-                          title="Dibujar en pantalla completa - Toca para ver más grande"
-                          aria-label="Abrir dibujo en pantalla completa"
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.95 }}
-                          style={{ zIndex: 100, width: '64px', height: '64px' }}
-                        >
-                          <Edit3 size={32} />
-                        </motion.button>
-                      )}
-
-                      <img
+                      <motion.img
                         src={`/stub_images/${exercise?.img}`}
                         alt={`Imagen del ejercicio: ${parsedTitle || exercise?.title}`}
-                        className="max-h-[50%] max-w-[75%] w-auto h-auto object-contain rounded-xl shadow-lg"
+                        className="max-h-[50%] max-w-[75%] w-auto h-auto object-contain rounded-xl shadow-lg cursor-pointer"
+                        onClick={() => !exercise?.isAudioExercise && setIsFullscreenDrawing(true)}
+                        animate={{
+                          scale: isTourActive && !exercise?.isAudioExercise ? [1, 1.16, 1] : 1,
+                        }}
+                        transition={{
+                          scale: {
+                            duration: 1.2,
+                            repeat: Infinity,
+                            ease: "easeInOut",
+                          },
+                        }}
+                        whileHover={!exercise?.isAudioExercise ? { scale: 1.05 } : {}}
+                        whileTap={!exercise?.isAudioExercise ? { scale: 0.95 } : {}}
+                        title={!exercise?.isAudioExercise ? "Toca la imagen para empezar a dibujar" : ""}
                       />
 
                       {exercise?.isAudioExercise && (
