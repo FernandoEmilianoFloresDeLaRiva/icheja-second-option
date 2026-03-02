@@ -1,17 +1,12 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import {
-  Palette,
-  Save,
-  Eraser,
-  Trash2,
   RotateCcw,
-  Download,
 } from "lucide-react";
 import {
   drawingStorage,
   canvasToBlob,
   blobToDataURL,
-  downloadDrawing,
 } from "../../utils/drawingStorage";
 import type { ExerciseMetadata } from "../../utils/drawingStorage";
 
