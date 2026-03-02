@@ -42,6 +42,13 @@ export default function UnitsView() {
       const parsedUnitId = parseInt(unitIdParam, 10);
       if (!isNaN(parsedUnitId)) {
         setSelectedUnitId(parsedUnitId);
+        
+        // Marcar que ya visitó la unidad para el tour
+        if (parsedUnitId === 0) {
+          sessionStorage.setItem('visited-unit-1', 'true');
+        } else if (parsedUnitId === 1) {
+          sessionStorage.setItem('visited-unit-2', 'true');
+        }
       } else {
         setSelectedUnitId(null);
       }

@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { theme } from "../../core/config/theme";
 import alfiImage from "../../assets/images/splash/Alfi.svg";
+// Import main image for hand cursor
+import handCursor from "../../assets/images/splash/hand-cursor.webp";
 import playIcon from "../../assets/images/splash/play.png";
 import logosImage from "../../assets/images/splash/logos.png";
 import { useSpeech } from "../../exercises/hooks/useSpeech";
@@ -324,7 +326,8 @@ export default function SplashScreen() {
               </motion.p>
 
               {/* Botón Iniciar con animaciones mejoradas */}
-              <motion.button
+              <div className="relative">
+                <motion.button
                 ref={iniciarButtonRef}
                 onClick={(e) => {
                   e.preventDefault();
@@ -388,6 +391,38 @@ export default function SplashScreen() {
                 />
                 <span className="relative z-10">Iniciar</span>
               </motion.button>
+              
+              {/* Manita apuntando al botón */}
+              <AnimatePresence>
+                {currentTourStep === "iniciar" && (
+                  <motion.div
+                    initial={{ opacity: 0, x: 50, y: 50 }}
+                    animate={{ 
+                      opacity: 1, 
+                      x: [20, 0, 20], 
+                      y: [20, 0, 20] 
+                    }}
+                    exit={{ opacity: 0 }}
+                    transition={{
+                      duration: 1.5,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                    className="absolute -bottom-12 -right-12 z-[10003] pointer-events-none drop-shadow-lg"
+                    style={{
+                      filter: "drop-shadow(0px 4px 8px rgba(0,0,0,0.3))"
+                    }}
+                  >
+                    {/* Imagen de la mano cursor - Reemplazar la imagen en src/assets/images/splash/hand-cursor.png */}
+                    <img
+                      src={handCursor}
+                      alt="Click aquí"
+                      className="w-35 h-35 object-contain rotate-[-15deg]"
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              </div>
             </motion.div>
 
             {/* Reproductor de audio CENTRADO */}
