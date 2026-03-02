@@ -1,14 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import {
   RotateCcw,
 } from "lucide-react";
-import {
-  drawingStorage,
-  canvasToBlob,
-  blobToDataURL,
-} from "../../utils/drawingStorage";
-import type { ExerciseMetadata } from "../../utils/drawingStorage";
 
 interface DrawingCanvasProps {
   isActive: boolean;
@@ -30,24 +23,19 @@ const DRAWING_COLORS = [
   { name: "Negro", color: "#000000", id: "black" },
 ];
 
-const BRUSH_SIZES = [2, 4, 6, 8, 12, 16];
+// const BRUSH_SIZES = [2, 4, 6, 8, 12, 16];
 
 export default function DrawingCanvas({
   isActive,
   backgroundImage,
   exerciseId,
-  exerciseTitle,
-  chapter,
-  subject,
-  exerciseNumber,
-  onSave,
 }: DrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [currentColor, setCurrentColor] = useState(DRAWING_COLORS[5].color); // Color negro por defecto (índice 5)
-  const [brushSize, setBrushSize] = useState(6); // Grosor medio (6px)
-  const [isErasing, setIsErasing] = useState(false);
-  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [currentColor] = useState(DRAWING_COLORS[5].color); // Color negro por defecto (índice 5)
+  const [brushSize] = useState(6); // Grosor medio (6px)
+  const [isErasing] = useState(false);
+  // const [showColorPicker, setShowColorPicker] = useState(false);
   const [imageRect, setImageRect] = useState({
     x: 0,
     y: 0,
@@ -100,183 +88,183 @@ export default function DrawingCanvas({
   }, []);
 
   // Función para guardar el dibujo
-  const saveDrawing = useCallback(async () => {
-    const canvas = canvasRef.current;
-    if (!canvas || !backgroundImageRef.current) return;
+  // const saveDrawing = useCallback(async () => {
+  //   const canvas = canvasRef.current;
+  //   if (!canvas || !backgroundImageRef.current) return;
 
-    try {
-      // Crear canvas temporal con el tamaño ORIGINAL de la imagen
-      const tempCanvas = document.createElement("canvas");
-      const tempCtx = tempCanvas.getContext("2d");
-      if (!tempCtx) return;
+  //   try {
+  //     // Crear canvas temporal con el tamaño ORIGINAL de la imagen
+  //     const tempCanvas = document.createElement("canvas");
+  //     const tempCtx = tempCanvas.getContext("2d");
+  //     if (!tempCtx) return;
 
-      const originalImg = backgroundImageRef.current;
-      tempCanvas.width = originalImg.naturalWidth;
-      tempCanvas.height = originalImg.naturalHeight;
+  //     const originalImg = backgroundImageRef.current;
+  //     tempCanvas.width = originalImg.naturalWidth;
+  //     tempCanvas.height = originalImg.naturalHeight;
 
-      // Dibujar la imagen original a tamaño completo
-      tempCtx.drawImage(
-        originalImg,
-        0,
-        0,
-        originalImg.naturalWidth,
-        originalImg.naturalHeight
-      );
+  //     // Dibujar la imagen original a tamaño completo
+  //     tempCtx.drawImage(
+  //       originalImg,
+  //       0,
+  //       0,
+  //       originalImg.naturalWidth,
+  //       originalImg.naturalHeight
+  //     );
 
-      // Extraer solo los trazos del canvas actual (sin la imagen de fondo)
-      // para guardarlos por separado
-      const drawingOnlyCanvas = document.createElement("canvas");
-      const drawingOnlyCtx = drawingOnlyCanvas.getContext("2d");
-      if (!drawingOnlyCtx) return;
+  //     // Extraer solo los trazos del canvas actual (sin la imagen de fondo)
+  //     // para guardarlos por separado
+  //     const drawingOnlyCanvas = document.createElement("canvas");
+  //     const drawingOnlyCtx = drawingOnlyCanvas.getContext("2d");
+  //     if (!drawingOnlyCtx) return;
 
-      drawingOnlyCanvas.width = originalImg.naturalWidth;
-      drawingOnlyCanvas.height = originalImg.naturalHeight;
+  //     drawingOnlyCanvas.width = originalImg.naturalWidth;
+  //     drawingOnlyCanvas.height = originalImg.naturalHeight;
 
-      // Escalar y dibujar los trazos del canvas actual sobre canvas de trazos
-      const scaleX = originalImg.naturalWidth / canvas.width;
-      const scaleY = originalImg.naturalHeight / canvas.height;
+  //     // Escalar y dibujar los trazos del canvas actual sobre canvas de trazos
+  //     const scaleX = originalImg.naturalWidth / canvas.width;
+  //     const scaleY = originalImg.naturalHeight / canvas.height;
 
-      drawingOnlyCtx.save();
-      drawingOnlyCtx.scale(scaleX, scaleY);
-      drawingOnlyCtx.drawImage(canvas, 0, 0);
-      drawingOnlyCtx.restore();
+  //     drawingOnlyCtx.save();
+  //     drawingOnlyCtx.scale(scaleX, scaleY);
+  //     drawingOnlyCtx.drawImage(canvas, 0, 0);
+  //     drawingOnlyCtx.restore();
 
-      // Extraer solo los pixels que son trazos (diferentes de transparencia)
-      const drawingData = drawingOnlyCtx.getImageData(
-        0,
-        0,
-        drawingOnlyCanvas.width,
-        drawingOnlyCanvas.height
-      );
+  //     // Extraer solo los pixels que son trazos (diferentes de transparencia)
+  //     const drawingData = drawingOnlyCtx.getImageData(
+  //       0,
+  //       0,
+  //       drawingOnlyCanvas.width,
+  //       drawingOnlyCanvas.height
+  //     );
 
-      // Dibujar solo los píxeles con contenido (alpha > 0) en el canvas final
-      const finalData = tempCtx.createImageData(
-        tempCanvas.width,
-        tempCanvas.height
-      );
+  //     // Dibujar solo los píxeles con contenido (alpha > 0) en el canvas final
+  //     const finalData = tempCtx.createImageData(
+  //       tempCanvas.width,
+  //       tempCanvas.height
+  //     );
 
-      for (let i = 0; i < drawingData.data.length; i += 4) {
-        const alpha = drawingData.data[i + 3];
-        if (alpha > 10) {
-          // Si hay contenido del trazo, copiar pixel
-          finalData.data[i] = drawingData.data[i];
-          finalData.data[i + 1] = drawingData.data[i + 1];
-          finalData.data[i + 2] = drawingData.data[i + 2];
-          finalData.data[i + 3] = alpha;
-        }
-      }
+  //     for (let i = 0; i < drawingData.data.length; i += 4) {
+  //       const alpha = drawingData.data[i + 3];
+  //       if (alpha > 10) {
+  //         // Si hay contenido del trazo, copiar pixel
+  //         finalData.data[i] = drawingData.data[i];
+  //         finalData.data[i + 1] = drawingData.data[i + 1];
+  //         finalData.data[i + 2] = drawingData.data[i + 2];
+  //         finalData.data[i + 3] = alpha;
+  //       }
+  //     }
 
-      // Pegar solo los trazos sobre la imagen
-      tempCtx.putImageData(finalData, 0, 0);
+  //     // Pegar solo los trazos sobre la imagen
+  //     tempCtx.putImageData(finalData, 0, 0);
 
-      // Convertir a Blob y guardar en IndexedDB con metadata
-      const imageBlob = await canvasToBlob(tempCanvas);
-      const metadata: ExerciseMetadata = {
-        title: exerciseTitle,
-        chapter: chapter,
-        subject: subject,
-        exerciseNumber: exerciseNumber,
-      };
-      await drawingStorage.saveDrawing(exerciseId, imageBlob, metadata);
+  //     // Convertir a Blob y guardar en IndexedDB con metadata
+  //     const imageBlob = await canvasToBlob(tempCanvas);
+  //     const metadata: ExerciseMetadata = {
+  //       title: exerciseTitle,
+  //       chapter: chapter,
+  //       subject: subject,
+  //       exerciseNumber: exerciseNumber,
+  //     };
+  //     await drawingStorage.saveDrawing(exerciseId, imageBlob, metadata);
 
-      // Convertir a data URL para callback
-      const dataURL = await blobToDataURL(imageBlob);
-      onSave?.(dataURL);
+  //     // Convertir a data URL para callback
+  //     const dataURL = await blobToDataURL(imageBlob);
+  //     onSave?.(dataURL);
 
-      console.log("✅ Dibujo guardado en IndexedDB");
-    } catch (error) {
-      console.error("❌ Error guardando en IndexedDB:", error);
-    }
-  }, [exerciseId, exerciseTitle, chapter, subject, exerciseNumber, onSave]);
+  //     console.log("✅ Dibujo guardado en IndexedDB");
+  //   } catch (error) {
+  //     console.error("❌ Error guardando en IndexedDB:", error);
+  //   }
+  // }, [exerciseId, exerciseTitle, chapter, subject, exerciseNumber, onSave]);
 
-  // Función para recargar el dibujo
-  const reloadDrawing = useCallback(async () => {
-    if (!canvasRef.current || !backgroundImageRef.current) return;
+  // // Función para recargar el dibujo
+  // const reloadDrawing = useCallback(async () => {
+  //   if (!canvasRef.current || !backgroundImageRef.current) return;
 
-    try {
-      const imageBlob = await drawingStorage.loadDrawing(exerciseId);
-      if (!imageBlob) {
-        console.log("No hay dibujo guardado para recargar");
-        return;
-      }
+  //   try {
+  //     const imageBlob = await drawingStorage.loadDrawing(exerciseId);
+  //     if (!imageBlob) {
+  //       console.log("No hay dibujo guardado para recargar");
+  //       return;
+  //     }
 
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
+  //     const canvas = canvasRef.current;
+  //     const ctx = canvas.getContext("2d");
+  //     if (!ctx) return;
 
-      // Convertir Blob a data URL
-      const dataURL = await blobToDataURL(imageBlob);
+  //     // Convertir Blob a data URL
+  //     const dataURL = await blobToDataURL(imageBlob);
 
-      const img = new Image();
-      img.onload = () => {
-        // Limpiar canvas actual
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+  //     const img = new Image();
+  //     img.onload = () => {
+  //       // Limpiar canvas actual
+  //       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Crear canvas con la imagen original para comparación
-        const origCanvas = document.createElement("canvas");
-        const origCtx = origCanvas.getContext("2d");
-        if (!origCtx) return;
+  //       // Crear canvas con la imagen original para comparación
+  //       const origCanvas = document.createElement("canvas");
+  //       const origCtx = origCanvas.getContext("2d");
+  //       if (!origCtx) return;
 
-        origCanvas.width = canvas.width;
-        origCanvas.height = canvas.height;
+  //       origCanvas.width = canvas.width;
+  //       origCanvas.height = canvas.height;
 
-        // Dibujar la imagen de fondo original escalada al tamaño del canvas actual
-        origCtx.drawImage(
-          backgroundImageRef.current!,
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        );
+  //       // Dibujar la imagen de fondo original escalada al tamaño del canvas actual
+  //       origCtx.drawImage(
+  //         backgroundImageRef.current!,
+  //         0,
+  //         0,
+  //         canvas.width,
+  //         canvas.height
+  //       );
 
-        // Dibujar la imagen guardada escalada al canvas actual
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  //       // Dibujar la imagen guardada escalada al canvas actual
+  //       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-        // Extraer datos de píxeles del canvas actual (imagen guardada escalada)
-        const completeImageData = ctx.getImageData(
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        );
+  //       // Extraer datos de píxeles del canvas actual (imagen guardada escalada)
+  //       const completeImageData = ctx.getImageData(
+  //         0,
+  //         0,
+  //         canvas.width,
+  //         canvas.height
+  //       );
 
-        // Crear nueva imagen solo con los trazos
-        const tracesOnlyData = ctx.createImageData(canvas.width, canvas.height);
+  //       // Crear nueva imagen solo con los trazos
+  //       const tracesOnlyData = ctx.createImageData(canvas.width, canvas.height);
 
-        // Comparar píxeles para identificar trazos (cambios desde la imagen original)
-        for (let i = 0; i < completeImageData.data.length; i += 4) {
-          const completeR = completeImageData.data[i];
-          const completeG = completeImageData.data[i + 1];
-          const completeB = completeImageData.data[i + 2];
-          const completeA = completeImageData.data[i + 3];
+  //       // Comparar píxeles para identificar trazos (cambios desde la imagen original)
+  //       for (let i = 0; i < completeImageData.data.length; i += 4) {
+  //         const completeR = completeImageData.data[i];
+  //         const completeG = completeImageData.data[i + 1];
+  //         const completeB = completeImageData.data[i + 2];
+  //         const completeA = completeImageData.data[i + 3];
 
-          // Considerar un trazo si el pixel actual tiene contenido (alpha > 0)
-          if (completeA > 10) {
-            // Pixel tiene contenido, copiarlo
-            tracesOnlyData.data[i] = completeR;
-            tracesOnlyData.data[i + 1] = completeG;
-            tracesOnlyData.data[i + 2] = completeB;
-            tracesOnlyData.data[i + 3] = completeA;
-          } else {
-            // Pixel transparente para las partes sin trazos
-            tracesOnlyData.data[i] = 0;
-            tracesOnlyData.data[i + 1] = 0;
-            tracesOnlyData.data[i + 2] = 0;
-            tracesOnlyData.data[i + 3] = 0;
-          }
-        }
+  //         // Considerar un trazo si el pixel actual tiene contenido (alpha > 0)
+  //         if (completeA > 10) {
+  //           // Pixel tiene contenido, copiarlo
+  //           tracesOnlyData.data[i] = completeR;
+  //           tracesOnlyData.data[i + 1] = completeG;
+  //           tracesOnlyData.data[i + 2] = completeB;
+  //           tracesOnlyData.data[i + 3] = completeA;
+  //         } else {
+  //           // Pixel transparente para las partes sin trazos
+  //           tracesOnlyData.data[i] = 0;
+  //           tracesOnlyData.data[i + 1] = 0;
+  //           tracesOnlyData.data[i + 2] = 0;
+  //           tracesOnlyData.data[i + 3] = 0;
+  //         }
+  //       }
 
-        // Limpiar canvas y dibujar solo los trazos
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.putImageData(tracesOnlyData, 0, 0);
+  //       // Limpiar canvas y dibujar solo los trazos
+  //       ctx.clearRect(0, 0, canvas.width, canvas.height);
+  //       ctx.putImageData(tracesOnlyData, 0, 0);
 
-        console.log("✅ Dibujo recargado desde IndexedDB");
-      };
-      img.src = dataURL;
-    } catch (error) {
-      console.error("❌ Error recargando desde IndexedDB:", error);
-    }
-  }, [exerciseId]);
+  //       console.log("✅ Dibujo recargado desde IndexedDB");
+  //     };
+  //     img.src = dataURL;
+  //   } catch (error) {
+  //     console.error("❌ Error recargando desde IndexedDB:", error);
+  //   }
+  // }, [exerciseId]);
 
   // Cargar imagen de fondo
   useEffect(() => {
