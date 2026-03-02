@@ -5,6 +5,7 @@ import {
   Volume2,
   Maximize2,
   X,
+  Check,
 } from "lucide-react";
 import ExerciseSelectImageO from "./ExcerciseSelectImageO/ExerciseSelectImageO";
 import ExerciseSelectImageU from "./ExcerciseSelectImageU/ExcerciseSelectImageU";
@@ -74,8 +75,8 @@ export default function ExerciseContent({ unitId }: ExerciseContentProps) {
   // Reproducir instrucciones cuando se abre el canvas de dibujo
   useEffect(() => {
     if (isFullscreenDrawing) {
-      // Esperar un momento para que se abra el modal
-      const timer = setTimeout(() => {
+      // 1. Instrucción principal al abrir (con pequeño delay)
+      const mainInstructionTimer = setTimeout(() => {
         const voiceContent = `${exercise?.title}. ${exercise?.content.content}`;
         speak(voiceContent, {
           lang: "es-MX",
@@ -83,9 +84,24 @@ export default function ExerciseContent({ unitId }: ExerciseContentProps) {
         });
       }, 500);
       
-      return () => clearTimeout(timer);
+      // 2. Recordatorio periódico de cómo salir (empezando a los 15s para no interrumpir la principal)
+      const reminderInterval = setInterval(() => {
+        // Solo reproducir si sigue abierto el modal
+        if (isFullscreenDrawing) {
+          speak("Cuando termines de dibujar, presiona el botón verde con la palomita para salir.", {
+            lang: "es-MX",
+            rate: 0.9,
+          });
+        }
+      }, 20000); // Repetir cada 20 segundos
+
+      return () => {
+        clearTimeout(mainInstructionTimer);
+        clearInterval(reminderInterval);
+        cancel(); // Cancelar audio al salir
+      };
     }
-  }, [isFullscreenDrawing, exercise?.title, exercise?.content.content, speak]);
+  }, [isFullscreenDrawing, exercise?.title, exercise?.content.content, speak, cancel]);
 
   const handleSaveDrawing = (imageData: string) => {
     console.log("Dibujo guardado:", imageData);
@@ -354,14 +370,36 @@ export default function ExerciseContent({ unitId }: ExerciseContentProps) {
               onClick={(e) => e.stopPropagation()}
               className="relative w-full h-full flex items-center justify-center p-4 z-10"
             >
-              {/* Botón de cerrar - Grande para accesibilidad */}
+              {/* Botón de finalizar - Icono grande y claro para analfabetas */}
               <motion.button
                 onClick={() => setIsFullscreenDrawing(false)}
-                className="absolute top-4 right-4 w-14 h-14 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800 rounded-full transition-all backdrop-blur-sm shadow-xl border-2 border-gray-300 z-20 flex items-center justify-center"
-                whileHover={{ scale: 1.1, rotate: 90 }}
-                whileTap={{ scale: 0.9 }}
+                className="absolute bottom-6 right-6 w-24 h-24 bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-full shadow-[0_8px_25px_rgba(34,197,94,0.4)] border-4 border-white flex items-center justify-center z-50 group"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ 
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 15,
+                  delay: 0.5 
+                }}
               >
-                <X size={28} />
+                <Check size={48} className="text-white stroke-[4px] drop-shadow-md" />
+                
+                {/* Onda de expansión para llamar la atención */}
+                <motion.div
+                  className="absolute inset-0 rounded-full border-4 border-green-400"
+                  animate={{
+                    scale: [1, 1.4, 1.4],
+                    opacity: [0.6, 0, 0],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeOut",
+                  }}
+                />
               </motion.button>
 
               {/* Botón grande de audio - para tablets y accesibilidad */}

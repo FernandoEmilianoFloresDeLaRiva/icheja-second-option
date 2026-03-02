@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSpeech } from "../../../exercises/hooks/useSpeech";
+import handCursor from "../../../assets/images/splash/hand-cursor.webp";
 
 interface TourStep {
   id: string;
@@ -29,8 +30,8 @@ const EXERCISE_TOUR_STEPS: (TourStep & { audioText?: string })[] = [
   },
 ];
 
-// Pasos base del tour de welcome - simplificado a solo la primera unidad
-const BASE_WELCOME_TOUR_STEPS: (TourStep & { audioText: string })[] = [
+// Pasos del tour de welcome - Unidad 1 (primera vez)
+const WELCOME_TOUR_UNIT_1: (TourStep & { audioText: string })[] = [
   {
     id: "unit-1",
     title: "Comienza aquí",
@@ -42,6 +43,19 @@ const BASE_WELCOME_TOUR_STEPS: (TourStep & { audioText: string })[] = [
   },
 ];
 
+// Pasos del tour de welcome - Unidad 2 (después de completar unidad 1)
+const WELCOME_TOUR_UNIT_2: (TourStep & { audioText: string })[] = [
+  {
+    id: "unit-2",
+    title: "Siguiente unidad",
+    description:
+      "Ahora puedes probar esta otra unidad con ejercicios diferentes.",
+    selector: '[data-tour="unit-2"]',
+    position: "top",
+    audioText: "Muy bien. Ahora puedes probar esta otra unidad con ejercicios diferentes.",
+  },
+];
+
 export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: TourGuiadoProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [elementPosition, setElementPosition] = useState<DOMRect | null>(null);
@@ -50,6 +64,9 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
   const { speak, cancel } = useSpeech();
   const hasSpokenRef = useRef(false);
   const previousStepRef = useRef<number>(-1);
+  
+  // Detectar si ya visitó la unidad 1
+  const hasVisitedUnit1 = sessionStorage.getItem('visited-unit-1') === 'true';
 
   // Determinar si es el tour de welcome o de ejercicios
   // Verificar también los query params para detectar /units?unitId=X
@@ -66,9 +83,12 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
       return EXERCISE_TOUR_STEPS;
     }
     
-    // Para welcome, solo retornar el paso de la unidad 1
-    return BASE_WELCOME_TOUR_STEPS;
-  }, [isWelcomeTour]);
+    // Para welcome, elegir entre unidad 1 o 2 según si ya visitó
+    if (hasVisitedUnit1) {
+      return WELCOME_TOUR_UNIT_2;
+    }
+    return WELCOME_TOUR_UNIT_1;
+  }, [isWelcomeTour, hasVisitedUnit1]);
 
   // Disparar evento cuando cambia el paso del tour para que los componentes sepan en qué paso estamos
   // Este useEffect debe ejecutarse ANTES de que se busque el elemento
@@ -96,10 +116,10 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
     }
   }, [currentStep, isActive, TOUR_STEPS]);
 
-  // Actualizar continuamente la posición del elemento para unit-1 y exercise-content-area para que el spotlight siga al pulso
+  // Actualizar continuamente la posición del elemento para unit-1, unit-2 y exercise-content-area para que el spotlight siga al pulso
   useEffect(() => {
     const stepData = TOUR_STEPS[currentStep];
-    if (!isActive || (stepData?.id !== "unit-1" && stepData?.id !== "exercise-content-area")) return;
+    if (!isActive || (stepData?.id !== "unit-1" && stepData?.id !== "unit-2" && stepData?.id !== "exercise-content-area")) return;
 
     let animationFrameId: number;
     
@@ -137,8 +157,8 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
       const step = TOUR_STEPS[currentStep];
       if (!step) return;
 
-      // Para el paso de unidad 1, esperar más tiempo para que el atributo se agregue dinámicamente
-      if (step.id === "unit-1") {
+      // Para el paso de unidad 1 o 2, esperar más tiempo para que el atributo se agregue dinámicamente
+      if (step.id === "unit-1" || step.id === "unit-2") {
         // Dar más tiempo para que el evento se dispare y el atributo se agregue al DOM
         const checkElement = () => {
           const element = document.querySelector(step.selector);
@@ -235,7 +255,7 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
 
     // Determinar el delay inicial según el tipo de paso y tour
     let initialDelay = 500;
-    if (TOUR_STEPS[currentStep]?.id === "unit-1") {
+    if (TOUR_STEPS[currentStep]?.id === "unit-1" || TOUR_STEPS[currentStep]?.id === "unit-2") {
       initialDelay = 800;
     } else if (isExerciseTour && currentStep === 0) {
       // Para el primer paso del tour de ejercicios, dar más tiempo para la transición de página
@@ -297,12 +317,12 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
     previousStepRef.current = currentStep;
   }, [currentStep, isActive, isWelcomeTour, isExerciseTour, cancel]);
 
-  // Escuchar eventos de clic en la unidad 1
+  // Escuchar eventos de clic en las unidades
   useEffect(() => {
     if (!isActive || !isWelcomeTour) return;
     
     const step = TOUR_STEPS[currentStep] as TourStep & { audioText?: string };
-    if (step?.id !== "unit-1") return;
+    if (step?.id !== "unit-1" && step?.id !== "unit-2") return;
 
     // El tour se activará automáticamente al navegar a la página de ejercicios
     // No necesitamos hacer nada especial aquí, solo permitir que la navegación ocurra normalmente
@@ -332,8 +352,8 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
         speak(step.audioText, {
           onEnd: () => {
             hasSpokenRef.current = true;
-            // Para el paso de unidad 1, NO avanzar automáticamente - esperar a que el usuario haga clic
-            if (step.id === "unit-1") {
+            // Para el paso de unidad 1 o 2, NO avanzar automáticamente - esperar a que el usuario haga clic
+            if (step.id === "unit-1" || step.id === "unit-2") {
               // El tour avanzará automáticamente cuando el usuario haga clic en la unidad
               return;
             }
@@ -391,7 +411,7 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
   const getSpotlightShape = () => {
     if (!elementPosition) return null;
 
-    const padding = (currentStepData?.id === "unit-1" || currentStepData?.id === "exercise-content-area") ? 25 : 20;
+    const padding = (currentStepData?.id === "unit-1" || currentStepData?.id === "unit-2" || currentStepData?.id === "exercise-content-area") ? 25 : 20;
     const minSize = 100; // Tamaño mínimo para elementos muy pequeños
     
     // Para el paso de navigation-buttons, siempre usar rectángulo que encierre ambos botones
@@ -406,8 +426,8 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
       };
     }
 
-    // Para el paso de unit-1, siempre usar rectángulo con border-radius similar a la tarjeta
-    if (currentStepData?.id === "unit-1") {
+    // Para el paso de unit-1 o unit-2, siempre usar rectángulo con border-radius similar a la tarjeta
+    if (currentStepData?.id === "unit-1" || currentStepData?.id === "unit-2") {
       return {
         type: 'rect' as const,
         x: elementPosition.left - padding,
@@ -463,6 +483,7 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
 
   return (
     <AnimatePresence>
+      {isActive && (
       <motion.div
         ref={overlayRef}
         initial={{ opacity: 0 }}
@@ -481,25 +502,16 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
               {/* Todo el fondo es blanco (visible) */}
               <rect width="100%" height="100%" fill="white" />
               {/* El spotlight es negro (transparente/invisible) */}
-              {spotlightShape && (
-                spotlightShape.type === 'circle' ? (
-                  <circle
-                    cx={spotlightShape.cx}
-                    cy={spotlightShape.cy}
-                    r={spotlightShape.r}
-                    fill="black"
-                  />
-                ) : (
-                  <rect
-                    x={spotlightShape.x}
-                    y={spotlightShape.y}
-                    width={spotlightShape.width}
-                    height={spotlightShape.height}
-                    rx={spotlightShape.rx}
-                    fill="black"
-                  />
-                )
-              )}
+              {(() => {
+                if (!spotlightShape) return null;
+                if (spotlightShape.type === 'circle') {
+                  const { cx, cy, r } = spotlightShape as any;
+                  return <circle cx={cx} cy={cy} r={r} fill="black" />;
+                } else {
+                  const { x, y, width, height, rx } = spotlightShape as any;
+                  return <rect x={x} y={y} width={width} height={height} rx={rx} fill="black" />;
+                }
+              })()}
             </mask>
           </defs>
           
@@ -512,7 +524,39 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
             style={{ mixBlendMode: "normal" }}
           />
         </svg>
+
+        {/* Manita apuntando al elemento (para unit-1 y unit-2) */}
+        {spotlightShape && (TOUR_STEPS[currentStep]?.id === "unit-1" || TOUR_STEPS[currentStep]?.id === "unit-2") && spotlightShape.type === 'rect' && (
+          <motion.div
+            initial={{ opacity: 0, x: 20, y: 20 }}
+            animate={{ 
+              opacity: 1, 
+              x: [20, 0, 20], 
+              y: [20, 0, 20] 
+            }}
+            exit={{ opacity: 0 }}
+            transition={{
+              duration: 1.5,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+            className="absolute pointer-events-none drop-shadow-lg"
+            style={{
+              // Posicionar relativo al spotlight rectangular
+              left: (spotlightShape as any).x + (spotlightShape as any).width - 20, // Ajustado para que apunte
+              top: (spotlightShape as any).y + (spotlightShape as any).height - 20, // Ajustado para que apunte
+              filter: "drop-shadow(0px 4px 8px rgba(0,0,0,0.3))"
+            }}
+          >
+            <img
+              src={handCursor}
+              alt="Click aquí"
+              className="w-35 h-35 object-contain rotate-[-15deg]"
+            />
+          </motion.div>
+        )}
       </motion.div>
+      )}
     </AnimatePresence>
   );
 }

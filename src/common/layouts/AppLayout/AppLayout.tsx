@@ -75,7 +75,22 @@ function AppLayout({ children }: AppLayoutProps) {
     const tourShownKey = currentIsExerciseRoute ? "tour-shown-exercises" : "tour-shown-welcome";
     
     // Verificar si el tour ya se mostró en esta sesión para este tipo de ruta
-    const tourAlreadyShown = sessionStorage.getItem(tourShownKey) === "true";
+    let tourAlreadyShown = sessionStorage.getItem(tourShownKey) === "true";
+    
+    // Verificar estado de visitas a unidades
+    const hasVisitedUnit1 = sessionStorage.getItem('visited-unit-1') === 'true';
+    const hasVisitedUnit2 = sessionStorage.getItem('visited-unit-2') === 'true';
+    
+    // Si ya visitó la unidad 2, NUNCA mostrar tour de welcome (ya completó el recorrido)
+    if (isWelcomeRoute && hasVisitedUnit2) {
+      return;
+    }
+    
+    // Si acabamos de visitar la unidad 1 y volvemos a welcome, mostrar tour de unidad 2
+    if (isWelcomeRoute && hasVisitedUnit1 && !hasVisitedUnit2) {
+      // Forzar mostrar el tour de la unidad 2
+      tourAlreadyShown = false;
+    }
     
     // Verificar si se solicitó iniciar el tour manualmente (desde Alfi)
     const manualTourRequest = sessionStorage.getItem("start-tour") === "true";

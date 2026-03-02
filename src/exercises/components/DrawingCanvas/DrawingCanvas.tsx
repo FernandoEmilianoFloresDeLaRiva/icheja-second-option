@@ -49,8 +49,8 @@ export default function DrawingCanvas({
 }: DrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [currentColor, setCurrentColor] = useState(DRAWING_COLORS[0].color);
-  const [brushSize, setBrushSize] = useState(4);
+  const [currentColor, setCurrentColor] = useState(DRAWING_COLORS[5].color); // Color negro por defecto (índice 5)
+  const [brushSize, setBrushSize] = useState(6); // Grosor medio (6px)
   const [isErasing, setIsErasing] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [imageRect, setImageRect] = useState({
@@ -313,118 +313,18 @@ export default function DrawingCanvas({
     }
   }, [isActive, exerciseId, imageRect]);
 
-  // Cargar datos guardados cuando el canvas esté listo
-  useEffect(() => {
-    if (
-      isActive &&
-      canvasRef.current &&
-      imageRect.width > 0 &&
-      backgroundImageRef.current
-    ) {
-      // Cargar desde IndexedDB
-      const loadFromIndexedDB = async () => {
-        try {
-          const imageBlob = await drawingStorage.loadDrawing(exerciseId);
-          if (!imageBlob || !canvasRef.current || !backgroundImageRef.current)
-            return;
-
-          const canvas = canvasRef.current;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) return;
-
-          // Convertir Blob a data URL
-          const dataURL = await blobToDataURL(imageBlob);
-
-          const img = new Image();
-          img.onload = () => {
-            // Limpiar canvas actual
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Dibujar la imagen completa guardada, escalada al tamaño del canvas actual
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-            // Extraer solo los trazos para poder seguir editando
-            const tempCanvas = document.createElement("canvas");
-            const tempCtx = tempCanvas.getContext("2d");
-            if (!tempCtx) return;
-
-            tempCanvas.width = canvas.width;
-            tempCanvas.height = canvas.height;
-
-            // Dibujar la imagen original
-            tempCtx.drawImage(
-              backgroundImageRef.current!,
-              0,
-              0,
-              canvas.width,
-              canvas.height
-            );
-
-            // Usar diferencia para extraer solo los trazos
-            const originalImageData = tempCtx.getImageData(
-              0,
-              0,
-              canvas.width,
-              canvas.height
-            );
-            const completeImageData = ctx.getImageData(
-              0,
-              0,
-              canvas.width,
-              canvas.height
-            );
-
-            // Crear nueva imagen solo con los trazos
-            const tracesOnlyData = ctx.createImageData(
-              canvas.width,
-              canvas.height
-            );
-
-            for (let i = 0; i < completeImageData.data.length; i += 4) {
-              const originalR = originalImageData.data[i];
-              const originalG = originalImageData.data[i + 1];
-              const originalB = originalImageData.data[i + 2];
-
-              const completeR = completeImageData.data[i];
-              const completeG = completeImageData.data[i + 1];
-              const completeB = completeImageData.data[i + 2];
-              const completeA = completeImageData.data[i + 3];
-
-              // Si el pixel es diferente de la imagen original, es un trazo
-              if (
-                Math.abs(originalR - completeR) > 10 ||
-                Math.abs(originalG - completeG) > 10 ||
-                Math.abs(originalB - completeB) > 10
-              ) {
-                tracesOnlyData.data[i] = completeR;
-                tracesOnlyData.data[i + 1] = completeG;
-                tracesOnlyData.data[i + 2] = completeB;
-                tracesOnlyData.data[i + 3] = completeA;
-              } else {
-                // Pixel transparente para las partes sin trazos
-                tracesOnlyData.data[i] = 0;
-                tracesOnlyData.data[i + 1] = 0;
-                tracesOnlyData.data[i + 2] = 0;
-                tracesOnlyData.data[i + 3] = 0;
-              }
-            }
-
-            // Limpiar canvas y dibujar solo los trazos
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.putImageData(tracesOnlyData, 0, 0);
-
-          };
-          img.src = dataURL;
-        } catch (error) {
-          console.error("❌ Error cargando desde IndexedDB:", error);
-        }
-      };
-
-      // Delay para asegurar que el canvas esté completamente configurado
-      const timer = setTimeout(loadFromIndexedDB, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [isActive, exerciseId, imageRect]);
+  // Cargar datos guardados cuando el canvas esté listo - ELIMINADO para no persistencia
+  // useEffect(() => {
+  //   if (
+  //     isActive &&
+  //     canvasRef.current &&
+  //     imageRect.width > 0 &&
+  //     backgroundImageRef.current
+  //   ) {
+  //     // Cargar desde IndexedDB
+  //     const loadFromIndexedDB = async () => { ... }
+  //   }
+  // }, [isActive, exerciseId, imageRect]);
 
   // Efecto para recalcular dimensiones cuando cambie el tamaño (menos frecuente en fullscreen)
   useEffect(() => {
@@ -515,9 +415,6 @@ export default function DrawingCanvas({
     if (!ctx) return;
 
     ctx.beginPath();
-
-    // Auto-guardar después de dibujar
-    saveDrawing();
   };
 
   const clearCanvas = async () => {
@@ -528,14 +425,6 @@ export default function DrawingCanvas({
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    try {
-      // Eliminar de IndexedDB
-      await drawingStorage.deleteDrawing(exerciseId);
-      console.log("✅ Dibujo eliminado de IndexedDB");
-    } catch (error) {
-      console.error("❌ Error eliminando de IndexedDB:", error);
-    }
   };
 
   if (!isActive) return null;
@@ -574,110 +463,19 @@ export default function DrawingCanvas({
         }}
       />
 
-      {/* Herramientas de dibujo - solo mostrar cuando está activo */}
+      {/* Herramientas de dibujo - Simplificado: solo borrar/reiniciar */}
       {isActive && (
-        <div className="absolute -top-4 right-4 bg-white rounded-lg shadow-lg p-3 space-y-3">
-          {/* Selector de colores */}
-          <div className="relative">
-            <button
-              onClick={() => setShowColorPicker(!showColorPicker)}
-              className="w-8 h-8 rounded-full border-2 border-gray-300 flex items-center justify-center"
-              style={{ backgroundColor: currentColor }}
-              title="Seleccionar color"
-            >
-              <Palette size={16} className="text-white" />
-            </button>
+        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-full shadow-lg p-2 flex flex-col gap-2 z-20">
+          
+          <button
+            onClick={clearCanvas}
+            className="w-12 h-12 flex items-center justify-center rounded-full bg-red-100 text-red-600 hover:bg-red-200 hover:scale-105 transition-all shadow-sm"
+            title="Borrar todo el dibujo"
+          >
+            <RotateCcw size={24} />
+          </button>
 
-            {showColorPicker && (
-              <div className="absolute top-10 right-0 bg-white rounded-lg shadow-lg p-2 grid grid-cols-2 gap-2 z-20">
-                {DRAWING_COLORS.map((colorOption) => (
-                  <button
-                    key={colorOption.id}
-                    onClick={() => {
-                      setCurrentColor(colorOption.color);
-                      setIsErasing(false);
-                      setShowColorPicker(false);
-                    }}
-                    className="w-10 h-10 sm:w-8 sm:h-8 rounded-full border-2 border-gray-300 hover:scale-110 transition-transform touch-manipulation"
-                    style={{ backgroundColor: colorOption.color }}
-                    title={colorOption.name}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Tamaño de pincel */}
-          <div className="space-y-1">
-            <div className="text-xs text-gray-600 text-center">Tamaño</div>
-            <select
-              value={brushSize}
-              onChange={(e) => setBrushSize(Number(e.target.value))}
-              className="w-full text-xs sm:text-xs p-2 sm:p-1 rounded border touch-manipulation"
-            >
-              {BRUSH_SIZES.map((size) => (
-                <option key={size} value={size}>
-                  {size}px
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Herramientas */}
-          <div className="flex flex-col space-y-2">
-            <button
-              onClick={() => {
-                setIsErasing(!isErasing);
-              }}
-              className={`p-3 sm:p-2 rounded touch-manipulation ${
-                isErasing
-                  ? "bg-red-500 text-white"
-                  : "bg-gray-100 hover:bg-gray-200"
-              }`}
-              title="Borrador"
-            >
-              <Eraser size={20} className="sm:hidden" />
-              <Eraser size={16} className="hidden sm:block" />
-            </button>
-
-            <button
-              onClick={saveDrawing}
-              className="p-3 sm:p-2 rounded bg-green-500 text-white hover:bg-green-600 touch-manipulation"
-              title="Guardar dibujo"
-            >
-              <Save size={20} className="sm:hidden" />
-              <Save size={16} className="hidden sm:block" />
-            </button>
-
-            <button
-              onClick={() => reloadDrawing()}
-              className="p-3 sm:p-2 rounded bg-blue-500 text-white hover:bg-blue-600 touch-manipulation"
-              title="Recargar último guardado"
-            >
-              <RotateCcw size={20} className="sm:hidden" />
-              <RotateCcw size={16} className="hidden sm:block" />
-            </button>
-
-            <button
-              onClick={() =>
-                downloadDrawing(exerciseId, `ejercicio_${exerciseId}.png`)
-              }
-              className="p-3 sm:p-2 rounded bg-purple-500 text-white hover:bg-purple-600 touch-manipulation"
-              title="Descargar imagen completa"
-            >
-              <Download size={20} className="sm:hidden" />
-              <Download size={16} className="hidden sm:block" />
-            </button>
-
-            <button
-              onClick={clearCanvas}
-              className="p-3 sm:p-2 rounded bg-red-500 text-white hover:bg-red-600 touch-manipulation"
-              title="Limpiar todo"
-            >
-              <Trash2 size={20} className="sm:hidden" />
-              <Trash2 size={16} className="hidden sm:block" />
-            </button>
-          </div>
+          {/* Ocultos pero disponibles en código si se necesitan después: Color, Grosor, Guardar, Descargar */}
         </div>
       )}
     </div>

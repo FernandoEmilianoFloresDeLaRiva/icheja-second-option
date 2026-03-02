@@ -11,9 +11,23 @@ interface UnitsGridProps {
 
 export default function UnitsGrid({ units, onUnitClick }: UnitsGridProps) {
   const [currentPage, setCurrentPage] = useState(0);
+  const [isTourActive, setIsTourActive] = useState(false);
   const unitsPerPage = 6; // 3 columnas x 2 filas = 6 unidades por página
   const totalPages = Math.ceil(units.length / unitsPerPage);
   const showCarousel = units.length > unitsPerPage;
+
+  // Escuchar cuando el tour está activo para ocultar las flechas
+  useEffect(() => {
+    const handleTourStepChange = (event: Event) => {
+      const customEvent = event as CustomEvent<{ stepId: string | null }>;
+      const { stepId } = customEvent.detail;
+      // Ocultar flechas cuando estamos en el paso de unit-1 o unit-2
+      setIsTourActive(stepId === "unit-1" || stepId === "unit-2");
+    };
+    
+    window.addEventListener('tour-step-changed', handleTourStepChange);
+    return () => window.removeEventListener('tour-step-changed', handleTourStepChange);
+  }, []);
 
   const handlePrevious = () => {
     setCurrentPage((prev) => (prev > 0 ? prev - 1 : totalPages - 1));
@@ -28,24 +42,22 @@ export default function UnitsGrid({ units, onUnitClick }: UnitsGridProps) {
       {/* Grid o Carrusel */}
       {showCarousel ? (
         <div className="relative px-12">
-          {/* Botones de navegación */}
+          {/* Botones de navegación - z-index menor durante el tour para que queden detrás del overlay */}
           {totalPages > 1 && (
-            <div data-tour="nav-arrows-container" className="absolute inset-0 pointer-events-none" style={{ zIndex: 10001 }}>
+            <div className="absolute inset-0 pointer-events-none" style={{ zIndex: isTourActive ? 1 : 10001 }}>
               <button
-                data-tour="nav-arrow-left"
                 onClick={handlePrevious}
-                className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110 hover:cursor-pointer border-2 border-gray-100 group pointer-events-auto"
+                className="absolute left-0 top-1/2 -translate-y-1/2 bg-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110 hover:cursor-pointer border-2 border-gray-100 group pointer-events-auto"
                 aria-label="Anterior"
-                style={{ zIndex: 10002 }}
+                style={{ zIndex: isTourActive ? 1 : 10002 }}
               >
                 <ChevronLeft className="w-6 h-6 text-[#009887] group-hover:text-[#007a6e] transition-colors" />
               </button>
               <button
-                data-tour="nav-arrow-right"
                 onClick={handleNext}
-                className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110 hover:cursor-pointer border-2 border-gray-100 group pointer-events-auto"
+                className="absolute right-0 top-1/2 -translate-y-1/2 bg-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110 hover:cursor-pointer border-2 border-gray-100 group pointer-events-auto"
                 aria-label="Siguiente"
-                style={{ zIndex: 10002 }}
+                style={{ zIndex: isTourActive ? 1 : 10002 }}
               >
                 <ChevronRight className="w-6 h-6 text-[#009887] group-hover:text-[#007a6e] transition-colors" />
               </button>
@@ -129,82 +141,43 @@ interface UnitCardProps {
 }
 
 function UnitCard({ unit, onUnitClick, index }: UnitCardProps) {
-  // Agregar data-tour solo a la unidad 1 (unit.id === 0) y solo cuando el tour esté en el paso 5 (unit-1)
+  // Determinar si esta tarjeta es la unidad 1 o 2
   const isUnit1 = unit.id === 0;
-  const [isUnit1StepActive, setIsUnit1StepActive] = useState(false);
+  const isUnit2 = unit.id === 1;
+  const [activeTourStep, setActiveTourStep] = useState<string | null>(null);
   
-  // Escuchar eventos del tour para saber cuándo estamos en el paso de unidad 1
+  // Escuchar eventos del tour para saber cuándo estamos en el paso de unidad 1 o 2
   useEffect(() => {
-    // Inicializar como false para asegurar que no se muestre desde el inicio
-    setIsUnit1StepActive(false);
-    
     const handleTourStepChange = (event: Event) => {
-      const customEvent = event as CustomEvent<{ stepId: string | null; currentStep: number; totalSteps: number }>;
+      const customEvent = event as CustomEvent<{ stepId: string | null }>;
       const { stepId } = customEvent.detail;
-      
-      // Solo activar el atributo data-tour cuando el paso actual sea EXACTAMENTE "unit-1"
-      // Verificación estricta: solo cuando stepId sea exactamente "unit-1" y no sea null
-      if (stepId === "unit-1") {
-        setIsUnit1StepActive(true);
-      } else {
-        // Asegurarse de que se desactive si no es el paso correcto
-        setIsUnit1StepActive(false);
-      }
+      setActiveTourStep(stepId);
     };
     
     window.addEventListener('tour-step-changed', handleTourStepChange);
     
-    // Verificación inicial: asegurarse de que no esté activo al montar
-    // Esperar un momento para que el tour se inicialice
-    const initTimer = setTimeout(() => {
-      setIsUnit1StepActive(false);
-    }, 100);
-    
     return () => {
       window.removeEventListener('tour-step-changed', handleTourStepChange);
-      clearTimeout(initTimer);
-      setIsUnit1StepActive(false);
     };
   }, []);
   
-  // Solo agregar el atributo data-tour cuando isUnit1StepActive sea true
-  // Verificación adicional: asegurarse de que el tour esté realmente en el paso de unidad 1
-  const shouldShowDataTour = isUnit1 && isUnit1StepActive;
+  // Determinar si esta tarjeta debe tener el spotlight
+  const isThisUnitActive = 
+    (isUnit1 && activeTourStep === "unit-1") || 
+    (isUnit2 && activeTourStep === "unit-2");
   
-  // Verificación adicional en tiempo real antes de renderizar
-  const [finalShouldShow, setFinalShouldShow] = useState(false);
-  
-  useEffect(() => {
-    if (shouldShowDataTour) {
-      // Verificar que realmente el tour esté buscando este elemento
-      const tourOverlay = document.querySelector('[class*="z-[9999]"]');
-      if (tourOverlay) {
-        const style = window.getComputedStyle(tourOverlay);
-        if (style.opacity !== '0') {
-          // Verificar que el tooltip mencione "Unidad 1"
-          const tooltips = document.querySelectorAll('[class*="bg-white rounded-2xl"]');
-          let mentionsUnit1 = false;
-          tooltips.forEach(tooltip => {
-            const text = tooltip.textContent || '';
-            // Verificar que el tooltip tenga el título exacto del paso de unidad 1
-            if (text.includes('Selecciona la Unidad 1') || 
-                (text.includes('Unidad 1') && text.includes('ejercicios'))) {
-              mentionsUnit1 = true;
-            }
-          });
-          setFinalShouldShow(mentionsUnit1);
-        } else {
-          setFinalShouldShow(false);
-        }
-      } else {
-        setFinalShouldShow(false);
-      }
-    } else {
-      setFinalShouldShow(false);
+  // Determinar el atributo data-tour
+  const getDataTourProps = () => {
+    if (isUnit1 && activeTourStep === "unit-1") {
+      return { "data-tour": "unit-1" };
     }
-  }, [shouldShowDataTour]);
+    if (isUnit2 && activeTourStep === "unit-2") {
+      return { "data-tour": "unit-2" };
+    }
+    return {};
+  };
   
-  const dataTourProps = finalShouldShow ? { "data-tour": "unit-1" } : {};
+  const dataTourProps = getDataTourProps();
   
   return (
     <motion.div
@@ -214,7 +187,7 @@ function UnitCard({ unit, onUnitClick, index }: UnitCardProps) {
         opacity: 1,
         y: 0,
         // Efecto de pulso cuando está activo el tour en esta unidad
-        scale: isUnit1 && isUnit1StepActive ? [1, 1.16, 1] : 1,
+        scale: isThisUnitActive ? [1, 1.16, 1] : 1,
       }}
       transition={{
         duration: 0.4,
@@ -231,7 +204,7 @@ function UnitCard({ unit, onUnitClick, index }: UnitCardProps) {
       onClick={() => onUnitClick(unit.id)}
       whileHover={{ scale: 1.03, y: -6 }}
       whileTap={{ scale: 0.98 }}
-      style={isUnit1 && isUnit1StepActive ? { zIndex: 10002, position: "relative" } : {}}
+      style={isThisUnitActive ? { zIndex: 10002, position: "relative" } : {}}
     >
       {/* Efecto de brillo al hacer hover */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#009887]/5 via-[#009887]/2 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
