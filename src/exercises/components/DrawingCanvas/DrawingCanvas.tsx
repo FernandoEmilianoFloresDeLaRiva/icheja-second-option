@@ -1,7 +1,11 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import {
-  RotateCcw,
-} from "lucide-react";
+  drawingStorage,
+  canvasToBlob,
+  blobToDataURL,
+  downloadDrawing,
+} from "../../utils/drawingStorage";
+import type { ExerciseMetadata } from "../../utils/drawingStorage";
 
 interface DrawingCanvasProps {
   isActive: boolean;
@@ -309,6 +313,20 @@ export default function DrawingCanvas({
   //   }
   // }, [isActive, exerciseId, imageRect]);
 
+  // Escuchar evento personalizado para limpiar el canvas desde el componente padre
+  useEffect(() => {
+    const handleClearEvent = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+
+    window.addEventListener('clear-drawing-canvas', handleClearEvent);
+    return () => window.removeEventListener('clear-drawing-canvas', handleClearEvent);
+  }, []);
+
   // Efecto para recalcular dimensiones cuando cambie el tamaño (menos frecuente en fullscreen)
   useEffect(() => {
     const handleResize = () => {
@@ -445,22 +463,6 @@ export default function DrawingCanvas({
           pointerEvents: isActive ? "auto" : "none", // Asegurar que no capture eventos cuando no está activo
         }}
       />
-
-      {/* Herramientas de dibujo - Simplificado: solo borrar/reiniciar */}
-      {isActive && (
-        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-full shadow-lg p-2 flex flex-col gap-2 z-20">
-          
-          <button
-            onClick={clearCanvas}
-            className="w-12 h-12 flex items-center justify-center rounded-full bg-red-100 text-red-600 hover:bg-red-200 hover:scale-105 transition-all shadow-sm"
-            title="Borrar todo el dibujo"
-          >
-            <RotateCcw size={24} />
-          </button>
-
-          {/* Ocultos pero disponibles en código si se necesitan después: Color, Grosor, Guardar, Descargar */}
-        </div>
-      )}
     </div>
   );
 }

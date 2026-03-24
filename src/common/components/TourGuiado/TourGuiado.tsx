@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSpeech } from "../../../exercises/hooks/useSpeech";
-import handCursor from "../../../assets/images/splash/hand-cursor.webp";
+import handCursor from "../../../assets/images/splash/mano.png";
 
 interface TourStep {
   id: string;
@@ -56,6 +56,32 @@ const WELCOME_TOUR_UNIT_2: (TourStep & { audioText: string })[] = [
   },
 ];
 
+// Pasos del tour de welcome - Unidad 3 (después de completar unidad 2)
+const WELCOME_TOUR_UNIT_3: (TourStep & { audioText: string })[] = [
+  {
+    id: "unit-3",
+    title: "Continúa aprendiendo",
+    description:
+      "Sigue adelante con esta nueva unidad de ejercicios.",
+    selector: '[data-tour="unit-3"]',
+    position: "top",
+    audioText: "Excelente trabajo. Continúa con esta nueva unidad de ejercicios.",
+  },
+];
+
+// Pasos del tour de welcome - Navegación libre (después de completar unidad 3)
+const WELCOME_TOUR_FREE_NAV: (TourStep & { audioText: string })[] = [
+  {
+    id: "free-nav",
+    title: "¡Felicidades!",
+    description:
+      "Ya conoces las unidades. Ahora puedes navegar libremente y explorar todas las unidades disponibles.",
+    selector: '[data-tour="units-grid"]',
+    position: "center",
+    audioText: "¡Felicidades! Ya conoces las primeras unidades. Ahora puedes navegar libremente y explorar todas las unidades disponibles a tu ritmo.",
+  },
+];
+
 export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: TourGuiadoProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [elementPosition, setElementPosition] = useState<DOMRect | null>(null);
@@ -65,8 +91,10 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
   const hasSpokenRef = useRef(false);
   const previousStepRef = useRef<number>(-1);
   
-  // Detectar si ya visitó la unidad 1
+  // Detectar si ya visitó las unidades
   const hasVisitedUnit1 = sessionStorage.getItem('visited-unit-1') === 'true';
+  const hasVisitedUnit2 = sessionStorage.getItem('visited-unit-2') === 'true';
+  const hasVisitedUnit3 = sessionStorage.getItem('visited-unit-3') === 'true';
 
   // Determinar si es el tour de welcome o de ejercicios
   // Verificar también los query params para detectar /units?unitId=X
@@ -83,12 +111,22 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
       return EXERCISE_TOUR_STEPS;
     }
     
-    // Para welcome, elegir entre unidad 1 o 2 según si ya visitó
+    // Para welcome, elegir según el progreso del usuario
+    if (hasVisitedUnit3) {
+      // Ya visitó las 3 unidades, mostrar navegación libre
+      return WELCOME_TOUR_FREE_NAV;
+    }
+    if (hasVisitedUnit2) {
+      // Ya visitó unidad 2, mostrar unidad 3
+      return WELCOME_TOUR_UNIT_3;
+    }
     if (hasVisitedUnit1) {
+      // Ya visitó unidad 1, mostrar unidad 2
       return WELCOME_TOUR_UNIT_2;
     }
+    // Primera vez, mostrar unidad 1
     return WELCOME_TOUR_UNIT_1;
-  }, [isWelcomeTour, hasVisitedUnit1]);
+  }, [isWelcomeTour, hasVisitedUnit1, hasVisitedUnit2, hasVisitedUnit3]);
 
   // Disparar evento cuando cambia el paso del tour para que los componentes sepan en qué paso estamos
   // Este useEffect debe ejecutarse ANTES de que se busque el elemento
@@ -116,10 +154,10 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
     }
   }, [currentStep, isActive, TOUR_STEPS]);
 
-  // Actualizar continuamente la posición del elemento para unit-1, unit-2 y exercise-content-area para que el spotlight siga al pulso
+  // Actualizar continuamente la posición del elemento para unit-1, unit-2, unit-3 y exercise-content-area para que el spotlight siga al pulso
   useEffect(() => {
     const stepData = TOUR_STEPS[currentStep];
-    if (!isActive || (stepData?.id !== "unit-1" && stepData?.id !== "unit-2" && stepData?.id !== "exercise-content-area")) return;
+    if (!isActive || (stepData?.id !== "unit-1" && stepData?.id !== "unit-2" && stepData?.id !== "unit-3" && stepData?.id !== "exercise-content-area")) return;
 
     let animationFrameId: number;
     
@@ -157,8 +195,8 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
       const step = TOUR_STEPS[currentStep];
       if (!step) return;
 
-      // Para el paso de unidad 1 o 2, esperar más tiempo para que el atributo se agregue dinámicamente
-      if (step.id === "unit-1" || step.id === "unit-2") {
+      // Para el paso de unidad 1, 2 o 3, esperar más tiempo para que el atributo se agregue dinámicamente
+      if (step.id === "unit-1" || step.id === "unit-2" || step.id === "unit-3") {
         // Dar más tiempo para que el evento se dispare y el atributo se agregue al DOM
         const checkElement = () => {
           const element = document.querySelector(step.selector);
@@ -255,7 +293,7 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
 
     // Determinar el delay inicial según el tipo de paso y tour
     let initialDelay = 500;
-    if (TOUR_STEPS[currentStep]?.id === "unit-1" || TOUR_STEPS[currentStep]?.id === "unit-2") {
+    if (TOUR_STEPS[currentStep]?.id === "unit-1" || TOUR_STEPS[currentStep]?.id === "unit-2" || TOUR_STEPS[currentStep]?.id === "unit-3") {
       initialDelay = 800;
     } else if (isExerciseTour && currentStep === 0) {
       // Para el primer paso del tour de ejercicios, dar más tiempo para la transición de página
@@ -322,7 +360,7 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
     if (!isActive || !isWelcomeTour) return;
     
     const step = TOUR_STEPS[currentStep] as TourStep & { audioText?: string };
-    if (step?.id !== "unit-1" && step?.id !== "unit-2") return;
+    if (step?.id !== "unit-1" && step?.id !== "unit-2" && step?.id !== "unit-3") return;
 
     // El tour se activará automáticamente al navegar a la página de ejercicios
     // No necesitamos hacer nada especial aquí, solo permitir que la navegación ocurra normalmente
@@ -352,8 +390,8 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
         speak(step.audioText, {
           onEnd: () => {
             hasSpokenRef.current = true;
-            // Para el paso de unidad 1 o 2, NO avanzar automáticamente - esperar a que el usuario haga clic
-            if (step.id === "unit-1" || step.id === "unit-2") {
+            // Para el paso de unidad 1, 2 o 3, NO avanzar automáticamente - esperar a que el usuario haga clic
+            if (step.id === "unit-1" || step.id === "unit-2" || step.id === "unit-3") {
               // El tour avanzará automáticamente cuando el usuario haga clic en la unidad
               return;
             }
@@ -411,7 +449,7 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
   const getSpotlightShape = () => {
     if (!elementPosition) return null;
 
-    const padding = (currentStepData?.id === "unit-1" || currentStepData?.id === "unit-2" || currentStepData?.id === "exercise-content-area") ? 25 : 20;
+    const padding = (currentStepData?.id === "unit-1" || currentStepData?.id === "unit-2" || currentStepData?.id === "unit-3" || currentStepData?.id === "exercise-content-area") ? 25 : 20;
     const minSize = 100; // Tamaño mínimo para elementos muy pequeños
     
     // Para el paso de navigation-buttons, siempre usar rectángulo que encierre ambos botones
@@ -426,8 +464,8 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
       };
     }
 
-    // Para el paso de unit-1 o unit-2, siempre usar rectángulo con border-radius similar a la tarjeta
-    if (currentStepData?.id === "unit-1" || currentStepData?.id === "unit-2") {
+    // Para el paso de unit-1, unit-2 o unit-3, siempre usar rectángulo con border-radius similar a la tarjeta
+    if (currentStepData?.id === "unit-1" || currentStepData?.id === "unit-2" || currentStepData?.id === "unit-3") {
       return {
         type: 'rect' as const,
         x: elementPosition.left - padding,
@@ -525,8 +563,8 @@ export default function TourGuiado({ isActive, onComplete, currentRoute = "" }: 
           />
         </svg>
 
-        {/* Manita apuntando al elemento (para unit-1 y unit-2) */}
-        {spotlightShape && (TOUR_STEPS[currentStep]?.id === "unit-1" || TOUR_STEPS[currentStep]?.id === "unit-2") && spotlightShape.type === 'rect' && (
+        {/* Manita apuntando al elemento (para unit-1, unit-2 y unit-3) */}
+        {spotlightShape && (TOUR_STEPS[currentStep]?.id === "unit-1" || TOUR_STEPS[currentStep]?.id === "unit-2" || TOUR_STEPS[currentStep]?.id === "unit-3") && spotlightShape.type === 'rect' && (
           <motion.div
             initial={{ opacity: 0, x: 20, y: 20 }}
             animate={{ 

@@ -21,8 +21,8 @@ export default function UnitsGrid({ units, onUnitClick }: UnitsGridProps) {
     const handleTourStepChange = (event: Event) => {
       const customEvent = event as CustomEvent<{ stepId: string | null }>;
       const { stepId } = customEvent.detail;
-      // Ocultar flechas cuando estamos en el paso de unit-1 o unit-2
-      setIsTourActive(stepId === "unit-1" || stepId === "unit-2");
+      // Ocultar flechas cuando estamos en cualquier paso del tour de unidades
+      setIsTourActive(stepId === "unit-1" || stepId === "unit-2" || stepId === "unit-3" || stepId === "free-nav");
     };
     
     window.addEventListener('tour-step-changed', handleTourStepChange);
@@ -141,12 +141,13 @@ interface UnitCardProps {
 }
 
 function UnitCard({ unit, onUnitClick, index }: UnitCardProps) {
-  // Determinar si esta tarjeta es la unidad 1 o 2
+  // Determinar si esta tarjeta es la unidad 1, 2 o 3
   const isUnit1 = unit.id === 0;
   const isUnit2 = unit.id === 1;
+  const isUnit3 = unit.id === 2;
   const [activeTourStep, setActiveTourStep] = useState<string | null>(null);
   
-  // Escuchar eventos del tour para saber cuándo estamos en el paso de unidad 1 o 2
+  // Escuchar eventos del tour para saber cuándo estamos en el paso de unidad 1, 2 o 3
   useEffect(() => {
     const handleTourStepChange = (event: Event) => {
       const customEvent = event as CustomEvent<{ stepId: string | null }>;
@@ -164,7 +165,8 @@ function UnitCard({ unit, onUnitClick, index }: UnitCardProps) {
   // Determinar si esta tarjeta debe tener el spotlight
   const isThisUnitActive = 
     (isUnit1 && activeTourStep === "unit-1") || 
-    (isUnit2 && activeTourStep === "unit-2");
+    (isUnit2 && activeTourStep === "unit-2") ||
+    (isUnit3 && activeTourStep === "unit-3");
   
   // Determinar el atributo data-tour
   const getDataTourProps = () => {
@@ -173,6 +175,9 @@ function UnitCard({ unit, onUnitClick, index }: UnitCardProps) {
     }
     if (isUnit2 && activeTourStep === "unit-2") {
       return { "data-tour": "unit-2" };
+    }
+    if (isUnit3 && activeTourStep === "unit-3") {
+      return { "data-tour": "unit-3" };
     }
     return {};
   };

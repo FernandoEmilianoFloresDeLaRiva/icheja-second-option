@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { theme } from "../../core/config/theme";
 import alfiImage from "../../assets/images/splash/Alfi.svg";
 // Import main image for hand cursor
-import handCursor from "../../assets/images/splash/hand-cursor.webp";
+import handCursor from "../../assets/images/splash/mano.png";
 import playIcon from "../../assets/images/splash/play.png";
 import logosImage from "../../assets/images/splash/logos.png";
 import { useSpeech } from "../../exercises/hooks/useSpeech";
@@ -198,15 +198,7 @@ export default function SplashScreen() {
     },
   };
 
-  // Animación flotante para Alfi
-  const floatingAnimation = {
-    y: [0, -15, 0],
-    transition: {
-      duration: 3,
-      repeat: Infinity,
-      ease: "easeInOut",
-    },
-  };
+
 
   // Animación de pulso para el botón de play cuando está reproduciendo
   const pulseAnimation = {
@@ -521,8 +513,8 @@ export default function SplashScreen() {
                 </motion.button>
               </motion.div>
 
-              {/* Mascota Alfi con animación flotante */}
-              <motion.div
+              {/* Mascota Alfi - estático */}
+              <div
                 ref={alfiRef}
                 className="flex justify-center items-center cursor-pointer relative"
                 style={{
@@ -530,20 +522,6 @@ export default function SplashScreen() {
                   position: currentTourStep === "alfi" ? "relative" : "static",
                   isolation: currentTourStep === "alfi" ? "isolate" : "auto",
                 }}
-                variants={itemVariants}
-                initial={{ opacity: 0, scale: 0.5, rotate: -10 }}
-                animate={{
-                  opacity: 1,
-                  scale: currentTourStep === "alfi" ? 1.1 : 1,
-                  rotate: 0,
-                  ...floatingAnimation,
-                }}
-                transition={{
-                  opacity: { duration: 0.8, delay: 0.6 },
-                  scale: { duration: 0.8, delay: 0.6 },
-                  rotate: { duration: 0.8, delay: 0.6 },
-                }}
-                whileHover={{ scale: 1.05, rotate: 5 }}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -578,7 +556,7 @@ export default function SplashScreen() {
                   className="max-w-full h-auto object-contain"
                   style={{ maxHeight: "400px" }}
                 />
-              </motion.div>
+              </div>
           </div>
 
           {/* Imagen de logos centrada con animación */}
