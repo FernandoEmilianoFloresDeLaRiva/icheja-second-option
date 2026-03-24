@@ -1,16 +1,4 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
-import {
-<<<<<<< HEAD
-  drawingStorage,
-  canvasToBlob,
-  blobToDataURL,
-  downloadDrawing,
-} from "../../utils/drawingStorage";
-import type { ExerciseMetadata } from "../../utils/drawingStorage";
-=======
-  RotateCcw,
-} from "lucide-react";
->>>>>>> 6183de0f9465a8e0011a91eab8227b0a83ea1ed1
 
 interface DrawingCanvasProps {
   isActive: boolean;
@@ -421,16 +409,6 @@ export default function DrawingCanvas({
     if (!ctx) return;
 
     ctx.beginPath();
-  };
-
-  const clearCanvas = async () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
   if (!isActive) return null;
