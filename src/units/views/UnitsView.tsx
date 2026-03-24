@@ -8,20 +8,62 @@ import UnitsGrid from "../components/UnitsGrid";
 import { motion } from "framer-motion";
 import AlfiImg from "../../assets/images/alfi.png";
 
-// Animación flotante para Alfi
-const floatingAnimation = {
-  y: [0, -15, 0],
-  transition: {
-    duration: 3,
-    repeat: Infinity,
-    ease: "easeInOut",
-  },
-};
+// Componente interno para la vista de ejercicios con header
+function ExerciseView({ unitId, onBack }: { unitId: number; onBack: () => void }) {
+  const [exerciseInfo, setExerciseInfo] = useState({ index: 0, total: 0 });
+  
+  const handleIndexChange = (index: number, total: number) => {
+    setExerciseInfo({ index, total });
+  };
+
+  const exerciseNumber = exerciseInfo.index + 1;
+  const totalExercises = exerciseInfo.total;
+
+  return (
+    <div className="h-full flex flex-col px-1 py-1">
+      {/* Fila superior: Botón de regreso + Indicador de ejercicio */}
+      <div className="flex items-center gap-3 mb-1 flex-shrink-0">
+        <motion.button
+          data-tour="back-button"
+          onClick={onBack}
+          className="flex items-center justify-center w-10 h-10 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 bg-gradient-to-r from-[#009887] to-[#00B8A9] hover:from-[#008577] hover:to-[#009887]"
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          title="Volver a unidades"
+        >
+          <ArrowLeft size={18} />
+        </motion.button>
+        
+        {totalExercises > 0 && (
+          <div className="px-4 py-2 bg-gradient-to-r from-[#009887] to-[#00B8A9] text-white rounded-xl text-lg font-bold shadow-md">
+            Ejercicio {exerciseNumber} de {totalExercises}
+          </div>
+        )}
+      </div>
+      
+      {/* Canvas de ejercicios - ocupa todo el espacio restante */}
+      <div className="flex-1 min-h-0">
+        <ExerciseContent unitId={unitId} onIndexChange={handleIndexChange} />
+      </div>
+    </div>
+  );
+}
 
 export default function UnitsView() {
   const [location, setLocation] = useLocation();
   const { units } = useUnits();
   const [selectedUnitId, setSelectedUnitId] = useState<number | null>(null);
+  const [isDrawingModalOpen, setIsDrawingModalOpen] = useState(false);
+
+  // Escuchar cuando el modal de dibujo está abierto para ocultar a Alfi
+  useEffect(() => {
+    const handleDrawingModalState = (event: CustomEvent<{ isOpen: boolean }>) => {
+      setIsDrawingModalOpen(event.detail.isOpen);
+    };
+
+    window.addEventListener('drawing-modal-state', handleDrawingModalState as EventListener);
+    return () => window.removeEventListener('drawing-modal-state', handleDrawingModalState as EventListener);
+  }, []);
 
   const handleAlfiClick = () => {
     // Activar el tour guardando en sessionStorage
@@ -48,6 +90,8 @@ export default function UnitsView() {
           sessionStorage.setItem('visited-unit-1', 'true');
         } else if (parsedUnitId === 1) {
           sessionStorage.setItem('visited-unit-2', 'true');
+        } else if (parsedUnitId === 2) {
+          sessionStorage.setItem('visited-unit-3', 'true');
         }
       } else {
         setSelectedUnitId(null);
@@ -98,55 +142,30 @@ export default function UnitsView() {
   if (selectedUnitId !== null) {
     return (
       <>
-        {/* Alfi arriba a la derecha - siempre visible */}
-        <motion.div
-          data-tour="alfi"
-          className="fixed cursor-pointer"
-          style={{
-            width: "120px",
-            height: "120px",
-            top: "120px",
-            right: "24px",
-            zIndex: 10002,
-            position: "fixed",
-          }}
-          initial={{ opacity: 0, scale: 0.5, rotate: -10 }}
-          animate={{
-            opacity: 1,
-            scale: 1,
-            rotate: 0,
-            ...floatingAnimation,
-          }}
-          transition={{
-            opacity: { duration: 0.8 },
-            scale: { duration: 0.8 },
-            rotate: { duration: 0.8 },
-          }}
-          whileHover={{ scale: 1.1, rotate: 5 }}
-          onClick={handleAlfiClick}
-        >
-          <img
-            src={AlfiImg}
-            alt="Alfi - Asistente virtual"
-            className="w-full h-full object-contain"
-          />
-        </motion.div>
-        <AppLayout>
-          <div className="h-full flex flex-col px-1 py-1">
-            <motion.button
-              data-tour="back-button"
-              onClick={handleBackClick}
-              className="flex items-center justify-center w-10 h-10 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 mb-1 bg-gradient-to-r from-[#009887] to-[#00B8A9] hover:from-[#008577] hover:to-[#009887] flex-shrink-0"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              title="Volver a unidades"
-            >
-              <ArrowLeft size={18} />
-            </motion.button>
-            <div className="flex-1 min-h-0">
-              <ExerciseContent unitId={selectedUnitId} />
-            </div>
+        {/* Alfi arriba a la derecha - oculto cuando el modal de dibujo está abierto */}
+        {!isDrawingModalOpen && (
+          <div
+            data-tour="alfi"
+            className="fixed cursor-pointer"
+            style={{
+              width: "120px",
+              height: "120px",
+              top: "120px",
+              right: "24px",
+              zIndex: 10002,
+              position: "fixed",
+            }}
+            onClick={handleAlfiClick}
+          >
+            <img
+              src={AlfiImg}
+              alt="Alfi - Asistente virtual"
+              className="w-full h-full object-contain"
+            />
           </div>
+        )}
+        <AppLayout>
+          <ExerciseView unitId={selectedUnitId} onBack={handleBackClick} />
         </AppLayout>
       </>
     );

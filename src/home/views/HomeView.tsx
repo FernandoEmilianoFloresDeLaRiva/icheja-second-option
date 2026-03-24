@@ -14,16 +14,6 @@ import { useUnits } from "../../units/hooks/useUnits";
 import { motion, AnimatePresence } from "framer-motion";
 import UnitsGrid from "../../units/components/UnitsGrid";
 
-// Animación flotante para Alfi
-const floatingAnimation = {
-  y: [0, -15, 0],
-  transition: {
-    duration: 3,
-    repeat: Infinity,
-    ease: "easeInOut",
-  },
-};
-
 export default function HomeView() {
   const [_, setLocation] = useLocation();
   const { speak, isSpeaking, cancel } = useSpeech();
@@ -57,7 +47,7 @@ export default function HomeView() {
   return (
     <div className="h-full w-full flex flex-col bg-white relative">
       {/* Alfi arriba a la derecha - siempre visible */}
-      <motion.div
+      <div
         data-tour="alfi"
         className="fixed cursor-pointer"
         style={{
@@ -68,26 +58,13 @@ export default function HomeView() {
           zIndex: 10002,
           position: "fixed",
         }}
-        initial={{ opacity: 0, scale: 0.5, rotate: -10 }}
-        animate={{
-          opacity: 1,
-          scale: 1,
-          rotate: 0,
-          ...floatingAnimation,
-        }}
-        transition={{
-          opacity: { duration: 0.8 },
-          scale: { duration: 0.8 },
-          rotate: { duration: 0.8 },
-        }}
-        whileHover={{ scale: 1.1, rotate: 5 }}
       >
         <img
           src={AlfiImg}
           alt="Alfi - Asistente virtual"
           className="w-full h-full object-contain"
         />
-      </motion.div>
+      </div>
 
       {/* Header de bienvenida con fondo rosa */}
       <div

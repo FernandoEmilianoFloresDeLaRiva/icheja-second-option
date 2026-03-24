@@ -80,10 +80,22 @@ function AppLayout({ children }: AppLayoutProps) {
     // Verificar estado de visitas a unidades
     const hasVisitedUnit1 = sessionStorage.getItem('visited-unit-1') === 'true';
     const hasVisitedUnit2 = sessionStorage.getItem('visited-unit-2') === 'true';
+    const hasVisitedUnit3 = sessionStorage.getItem('visited-unit-3') === 'true';
+    const hasShownFreeNavTour = sessionStorage.getItem('tour-shown-free-nav') === 'true';
     
-    // Si ya visitó la unidad 2, NUNCA mostrar tour de welcome (ya completó el recorrido)
-    if (isWelcomeRoute && hasVisitedUnit2) {
+    // Si ya visitó la unidad 3 Y ya mostró el tour de navegación libre, no mostrar más tours
+    if (isWelcomeRoute && hasVisitedUnit3 && hasShownFreeNavTour) {
       return;
+    }
+    
+    // Si visitó unidad 3 pero no ha visto el tour de navegación libre, mostrarlo
+    if (isWelcomeRoute && hasVisitedUnit3 && !hasShownFreeNavTour) {
+      tourAlreadyShown = false;
+    }
+    
+    // Si acabamos de visitar la unidad 2 y volvemos a welcome, mostrar tour de unidad 3
+    if (isWelcomeRoute && hasVisitedUnit2 && !hasVisitedUnit3) {
+      tourAlreadyShown = false;
     }
     
     // Si acabamos de visitar la unidad 1 y volvemos a welcome, mostrar tour de unidad 2
@@ -123,6 +135,12 @@ function AppLayout({ children }: AppLayoutProps) {
     const tourShownKey = currentIsExerciseRoute ? "tour-shown-exercises" : (isWelcomeRoute ? "tour-shown-welcome" : "tour-shown-exercises");
     sessionStorage.setItem(tourShownKey, "true");
     
+    // Si ya visitó la unidad 3, marcar que ya se mostró el tour de navegación libre
+    const hasVisitedUnit3 = sessionStorage.getItem('visited-unit-3') === 'true';
+    if (isWelcomeRoute && hasVisitedUnit3) {
+      sessionStorage.setItem('tour-shown-free-nav', 'true');
+    }
+    
     // Ocultar el tour
     setShowTour(false);
     // Limpiar sessionStorage de flags temporales
@@ -138,6 +156,12 @@ function AppLayout({ children }: AppLayoutProps) {
     const currentIsExerciseRoute = location === "/exercises" || location.startsWith("/exercise/") || (location === "/units" && currentHasUnitId);
     const tourShownKey = currentIsExerciseRoute ? "tour-shown-exercises" : (isWelcomeRoute ? "tour-shown-welcome" : "tour-shown-exercises");
     sessionStorage.setItem(tourShownKey, "true");
+    
+    // Si ya visitó la unidad 3, marcar que ya se mostró el tour de navegación libre
+    const hasVisitedUnit3 = sessionStorage.getItem('visited-unit-3') === 'true';
+    if (isWelcomeRoute && hasVisitedUnit3) {
+      sessionStorage.setItem('tour-shown-free-nav', 'true');
+    }
     
     // Ocultar el tour
     setShowTour(false);

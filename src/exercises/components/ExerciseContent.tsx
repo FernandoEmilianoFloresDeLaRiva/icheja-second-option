@@ -3,19 +3,17 @@ import {
   ChevronRight,
   Square,
   Volume2,
-  Maximize2,
-  X,
   Check,
+  X,
+  RotateCcw,
 } from "lucide-react";
 import ExerciseSelectImageO from "./ExcerciseSelectImageO/ExerciseSelectImageO";
 import ExerciseSelectImageU from "./ExcerciseSelectImageU/ExcerciseSelectImageU";
-import ExerciseHeader from "./ExerciseHeader/ExerciseHeader";
-import ExerciseInstructions from "./ExerciseInstructions/ExerciseInstructions";
 import { useExercises } from "../hooks/useExercises";
 import { motion, AnimatePresence } from "framer-motion";
 import { parseTitleExercises } from "../utils/parseTitleExercise";
 import DrawingCanvas from "./DrawingCanvas/DrawingCanvas";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSpeech } from "../hooks/useSpeech";
 import VowelCarouselGame from "./ExerciseTwentyFour/VowelCarouselGame";
 import DragVowelExercise from "./DragVowelExercise/DragVowelExcercise";
@@ -23,11 +21,32 @@ import LetterSelectionGame from "./Select-letter/SelectLetter";
 import LetterIdentificationGame from "./LetterIdentificationGame/LetterIdentificationGame";
 import exercises from "../../../exercises.json";
 
+// Audio de bienvenida para la primera vez (vista de selección de ejercicios)
+const WELCOME_AUDIO = `¡Bienvenido de nuevo! Aquí puedes elegir el dibujo que más te guste para practicar.
+En el centro de la pantalla verás un dibujo.
+Si quieres ver otro dibujo diferente, busca el botón grande con una flecha que apunta hacia la DERECHA y presiónalo.
+Si quieres regresar a ver el dibujo anterior, presiona el botón grande con la flecha que apunta hacia la IZQUIERDA.
+Y si te perdiste y quieres volver a escuchar todo lo que te acabo de decir, presiona el botón pequeño de color ROSA.
+Tómate tu tiempo. Cuando encuentres el dibujo que quieres hacer, simplemente presiona con tu dedo sobre el dibujo que está en el centro.
+Al presionarlo, entraremos al juego para que empieces a unir las líneas.`;
+
+// Audio de instrucciones para el canvas de dibujo
+const DRAWING_AUDIO = `¡Hola! Vamos a practicar un poco.
+En la pantalla verás un dibujo hecho con rayitas separadas.
+Tu misión es unirlas todas.
+Toma tu dedo o tu lápiz y traza una línea sobre las rayitas, desde donde empiezan hasta donde terminan, para completar el dibujo.
+Cuando hayas terminado el dibujo y te guste cómo quedó, presiona el botón VERDE con la palomita que está abajo a la derecha.
+Si quieres borrarlo y empezar de nuevo, presiona el botón NARANJA que está abajo a la izquierda.
+Si quieres salir sin guardar, presiona el botón ROJO con la equis que está arriba a la izquierda.
+Y si te perdiste y quieres volver a escuchar estas instrucciones, presiona el botón AZUL con la bocina que está arriba a la derecha.
+¡Adelante, tú puedes hacerlo!`;
+
 interface ExerciseContentProps {
   unitId: number;
+  onIndexChange?: (index: number, total: number) => void;
 }
 
-export default function ExerciseContent({ unitId }: ExerciseContentProps) {
+export default function ExerciseContent({ unitId, onIndexChange }: ExerciseContentProps) {
   // Validar que unitId sea un número válido, usar 0 por defecto
   const validUnitId = unitId !== undefined && !isNaN(unitId) ? unitId : 0;
   
@@ -47,15 +66,48 @@ export default function ExerciseContent({ unitId }: ExerciseContentProps) {
 
   const { parsedTitle, number } = parseTitleExercises(exercise?.title || "");
 
-  const [isFullscreenAudio, setIsFullscreenAudio] = useState(false);
   const [isFullscreenDrawing, setIsFullscreenDrawing] = useState(false);
   const [isTourActive, setIsTourActive] = useState(false);
+  const hasPlayedWelcomeRef = useRef(false);
+  const hasPlayedDrawingAudioRef = useRef(false);
+
+  // Notificar cambios en el índice al componente padre
+  useEffect(() => {
+    if (onIndexChange) {
+      const total = exercises[0]?.content?.[validUnitId]?.exercise?.length || 0;
+      onIndexChange(currentIndex, total);
+    }
+  }, [currentIndex, onIndexChange, validUnitId]);
 
   // Cerrar modales cuando cambia el ejercicio
   useEffect(() => {
-    setIsFullscreenAudio(false);
     setIsFullscreenDrawing(false);
   }, [exercise?.title]);
+
+  // Emitir evento cuando el modal de dibujo cambia de estado (para ocultar Alfi)
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('drawing-modal-state', { detail: { isOpen: isFullscreenDrawing } }));
+  }, [isFullscreenDrawing]);
+
+  // Reproducir audio de bienvenida la primera vez que entra a la vista de ejercicios
+  useEffect(() => {
+    const welcomeKey = `welcome-audio-unit-${validUnitId}`;
+    const hasPlayedWelcome = sessionStorage.getItem(welcomeKey) === 'true';
+    
+    if (!hasPlayedWelcome && !hasPlayedWelcomeRef.current) {
+      hasPlayedWelcomeRef.current = true;
+      // Pequeño delay para asegurar que la vista esté lista
+      const timer = setTimeout(() => {
+        speak(WELCOME_AUDIO, {
+          lang: "es-MX",
+          rate: 0.9,
+        });
+        sessionStorage.setItem(welcomeKey, 'true');
+      }, 800);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [validUnitId, speak]);
 
   // Escuchar eventos del tour para aplicar efecto de pulso
   useEffect(() => {
@@ -72,68 +124,60 @@ export default function ExerciseContent({ unitId }: ExerciseContentProps) {
     };
   }, []);
 
-  // Reproducir instrucciones cuando se abre el canvas de dibujo
+  // Reproducir instrucciones de dibujo cuando se abre el canvas (solo una vez por apertura)
   useEffect(() => {
-    if (isFullscreenDrawing) {
-      // 1. Instrucción principal al abrir (con pequeño delay)
-      const mainInstructionTimer = setTimeout(() => {
-        const voiceContent = `${exercise?.title}. ${exercise?.content.content}`;
-        speak(voiceContent, {
+    if (isFullscreenDrawing && !hasPlayedDrawingAudioRef.current) {
+      hasPlayedDrawingAudioRef.current = true;
+      // Pequeño delay para asegurar que el modal esté visible
+      const timer = setTimeout(() => {
+        speak(DRAWING_AUDIO, {
           lang: "es-MX",
           rate: 0.9,
         });
       }, 500);
       
-      // 2. Recordatorio periódico de cómo salir (empezando a los 15s para no interrumpir la principal)
-      const reminderInterval = setInterval(() => {
-        // Solo reproducir si sigue abierto el modal
-        if (isFullscreenDrawing) {
-          speak("Cuando termines de dibujar, presiona el botón verde con la palomita para salir.", {
-            lang: "es-MX",
-            rate: 0.9,
-          });
-        }
-      }, 20000); // Repetir cada 20 segundos
-
-      return () => {
-        clearTimeout(mainInstructionTimer);
-        clearInterval(reminderInterval);
-        cancel(); // Cancelar audio al salir
-      };
+      return () => clearTimeout(timer);
     }
-  }, [isFullscreenDrawing, exercise?.title, exercise?.content.content, speak, cancel]);
+    
+    // Resetear el flag cuando se cierra el modal
+    if (!isFullscreenDrawing) {
+      hasPlayedDrawingAudioRef.current = false;
+      cancel(); // Cancelar audio al salir
+    }
+  }, [isFullscreenDrawing, speak, cancel]);
 
   const handleSaveDrawing = (imageData: string) => {
     console.log("Dibujo guardado:", imageData);
   };
 
-  const handleSpeakClick = () => {
+  // Botón rosa para reproducir el audio de bienvenida (en la vista principal)
+  const handleWelcomeAudioClick = () => {
     if (isSpeaking) {
       cancel();
     } else {
-      const voiceContent = `${exercise?.title}. ${exercise?.content.content}`;
-      speak(voiceContent, {
+      speak(WELCOME_AUDIO, {
         lang: "es-MX",
         rate: 0.9,
       });
     }
   };
 
-  const handleFullscreenAudioClick = () => {
+  // Botón rosa para reproducir las instrucciones de dibujo (en el modal)
+  const handleDrawingAudioClick = () => {
     if (isSpeaking) {
       cancel();
     } else {
-      const voiceContent = `${exercise?.title}. ${exercise?.content.content}`;
-      speak(voiceContent, {
+      speak(DRAWING_AUDIO, {
         lang: "es-MX",
         rate: 0.9,
       });
     }
   };
 
-  // Calcular el total de ejercicios
-  const totalExercises = exercises[0]?.content?.[validUnitId]?.exercise?.length || 0;
-  const exerciseNumber = currentIndex + 1;
+  // Función para limpiar el canvas (dispara evento personalizado)
+  const handleClearCanvas = () => {
+    window.dispatchEvent(new CustomEvent('clear-drawing-canvas'));
+  };
 
   return (
     <div data-tour="content" className="w-full h-full flex flex-col overflow-hidden">
@@ -146,99 +190,80 @@ export default function ExerciseContent({ unitId }: ExerciseContentProps) {
           transition={{ duration: 0.3, ease: "easeOut" }}
           className="flex flex-col h-full min-h-0 overflow-hidden"
         >
-          {/* Indicador de progreso - Ultra compacto */}
-          <div className="flex items-center gap-1.5 mb-1 flex-shrink-0 bg-white rounded-lg p-1.5 shadow-sm border border-gray-200">
-            <div data-tour="progress-indicator" className="flex items-center gap-1.5">
-              <div className="px-3 py-1 bg-gradient-to-r from-[#009887] to-[#00B8A9] text-white rounded-lg text-sm font-bold shadow-md min-w-[60px] text-center">
-                {exerciseNumber}/{totalExercises}
-              </div>
-              <div className="w-[200px] h-2.5 bg-gray-200 rounded-full overflow-hidden shadow-inner">
-                <motion.div
-                  className="h-full bg-gradient-to-r from-[#009887] to-[#00B8A9] rounded-full shadow-sm"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${(exerciseNumber / totalExercises) * 100}%` }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
-                />
-              </div>
-              <span className="text-xs font-semibold text-gray-600 whitespace-nowrap hidden lg:inline">
-                Ejercicio {exerciseNumber} de {totalExercises}
-              </span>
-            </div>
-          </div>
+          {/* Botón rosa de audio - Fijo en la parte inferior izquierda, después del sidebar */}
+          <motion.button
+            onClick={handleWelcomeAudioClick}
+            className={`fixed bottom-6 left-24 z-50 w-16 h-16 rounded-full flex items-center justify-center shadow-xl transition-all ${
+              isSpeaking
+                ? "bg-red-500 hover:bg-red-600"
+                : "bg-gradient-to-br from-[#C90166] to-[#E91E63] hover:from-[#B00050] hover:to-[#D81B60]"
+            }`}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            title={isSpeaking ? "Detener audio" : "Escuchar instrucciones"}
+          >
+            {isSpeaking ? (
+              <Square size={28} className="text-white" />
+            ) : (
+              <Volume2 size={32} className="text-white" />
+            )}
+          </motion.button>
 
-          {/* Layout principal: Header e Instrucciones a la izquierda, Contenido a la derecha */}
-          <div className="flex-1 grid grid-cols-12 gap-1.5 min-h-0 overflow-hidden">
-            {/* Columna izquierda: Header e Instrucciones */}
-            <div className="col-span-12 md:col-span-5 flex flex-col gap-1 min-h-0">
-              {/* Header del ejercicio - Grande y claro */}
-              <div data-tour="exercise-header" className="bg-white rounded-xl shadow-md p-2 border-2 border-gray-200 flex-shrink-0">
-                <ExerciseHeader
-                  chapter={chapter}
-                  subject={subject}
-                  title={parsedTitle || ""}
-                  number={number}
-                />
-              </div>
+          {/* Área principal: Canvas con flechas de navegación a los lados */}
+          <div className="flex-1 flex items-center justify-center gap-4 min-h-0 overflow-hidden px-4">
+            {/* Flecha izquierda - Anterior */}
+            <motion.button
+              onClick={previousExercise}
+              disabled={isFirstExercise}
+              className={`w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center shadow-xl transition-all flex-shrink-0 ${
+                isFirstExercise
+                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-gradient-to-br from-[#009887] to-[#00B8A9] text-white hover:from-[#008577] hover:to-[#009887] cursor-pointer"
+              }`}
+              whileHover={!isFirstExercise ? { scale: 1.1 } : {}}
+              whileTap={!isFirstExercise ? { scale: 0.95 } : {}}
+              title={isFirstExercise ? "No hay ejercicio anterior" : "Ejercicio anterior"}
+            >
+              <ChevronLeft size={48} className="md:w-14 md:h-14" />
+            </motion.button>
 
-              {/* Instrucciones - Grande y clara para accesibilidad */}
-              <div data-tour="exercise-instructions" className="bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-md p-2.5 border-2 border-gray-200 flex-1 min-h-0 overflow-y-auto relative">
-                {/* Botón de pantalla completa para audio - Grande para accesibilidad */}
-                <motion.button
-                  data-tour="fullscreen-audio-button"
-                  onClick={() => setIsFullscreenAudio(true)}
-                  className="absolute top-3 right-3 w-16 h-16 bg-gradient-to-br from-[#009887] to-[#00B8A9] text-white rounded-2xl shadow-xl hover:shadow-2xl transition-all z-10 flex items-center justify-center border-2 border-white"
-                  title="Escuchar instrucciones en pantalla completa"
-                  aria-label="Abrir instrucciones en pantalla completa"
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <Maximize2 size={28} />
-                </motion.button>
-                <ExerciseInstructions
-                  voiceContent={`${exercise?.title || ""}. ${exercise?.content?.content || ""}`}
-                  subtitle={exercise?.content?.subtitle || ""}
-                  content={exercise?.content?.content || ""}
-                />
-              </div>
-            </div>
+            {/* Canvas/Imagen del ejercicio - Área central */}
+            <div 
+              data-tour="exercise-content-area" 
+              className="flex-1 h-full max-h-full bg-gradient-to-br from-gray-50 to-gray-100 shadow-lg rounded-2xl p-4 flex justify-center items-center border-2 border-gray-200 overflow-hidden"
+            >
+              {(() => {
+                const caseNumber = exercise?.case ?? null;
 
-            {/* Columna derecha: Área de contenido/imagen - Misma altura que instrucciones */}
-            <div className="col-span-12 md:col-span-7 flex flex-col min-h-0">
-              <div data-tour="exercise-content-area" className="relative bg-gradient-to-br from-gray-50 to-gray-100 shadow-md rounded-xl p-2 flex-1 flex justify-center items-center border-2 border-gray-200 min-h-0">
-            {/*SWICH CASE POR EJERCICIOS COPIADOS DE LA APP MOVIL*/}
-            {(() => {
-              const caseNumber = exercise?.case ?? null;
+                switch (caseNumber) {
+                  case 24:
+                    return <VowelCarouselGame />;
 
-              switch (caseNumber) {
-                case 24:
-                  return <VowelCarouselGame />;
+                  case 25:
+                    return (
+                      <div className="w-full h-full flex items-center justify-center overflow-hidden">
+                        <DragVowelExercise targetVowel="a" wordsPerRound={5} />
+                      </div>
+                    );
 
-                case 25:
-                  return (
-                    <div className="w-full h-full flex items-center justify-center overflow-hidden">
-                      <DragVowelExercise targetVowel="a" wordsPerRound={5} />
-                    </div>
-                  );
+                  case 26:
+                    return <LetterIdentificationGame />;
 
-                case 26:
-                  return <LetterIdentificationGame />;
+                  case 27:
+                    return <LetterSelectionGame />;
 
-                case 27:
-                  return <LetterSelectionGame></LetterSelectionGame>;
+                  case 46:
+                    return <ExerciseSelectImageO />;
 
-                case 46:
-                  return <ExerciseSelectImageO />;
+                  case 47:
+                    return <ExerciseSelectImageU />;
 
-                case 47:
-                  return <ExerciseSelectImageU />;
-
-                default:
-                  return (
-                    <>
+                  default:
+                    return (
                       <motion.img
                         src={`/stub_images/${exercise?.img}`}
                         alt={`Imagen del ejercicio: ${parsedTitle || exercise?.title}`}
-                        className="max-h-[50%] max-w-[75%] w-auto h-auto object-contain rounded-xl shadow-lg cursor-pointer"
+                        className="max-h-full max-w-full w-auto h-auto object-contain rounded-xl shadow-lg cursor-pointer"
                         onClick={() => !exercise?.isAudioExercise && setIsFullscreenDrawing(true)}
                         animate={{
                           scale: isTourActive && !exercise?.isAudioExercise ? [1, 1.16, 1] : 1,
@@ -250,97 +275,30 @@ export default function ExerciseContent({ unitId }: ExerciseContentProps) {
                             ease: "easeInOut",
                           },
                         }}
-                        whileHover={!exercise?.isAudioExercise ? { scale: 1.05 } : {}}
-                        whileTap={!exercise?.isAudioExercise ? { scale: 0.95 } : {}}
+                        whileHover={!exercise?.isAudioExercise ? { scale: 1.03 } : {}}
+                        whileTap={!exercise?.isAudioExercise ? { scale: 0.97 } : {}}
                         title={!exercise?.isAudioExercise ? "Toca la imagen para empezar a dibujar" : ""}
                       />
-
-                      {exercise?.isAudioExercise && (
-                        <motion.button
-                          onClick={handleSpeakClick}
-                          className={`absolute top-4 left-4 w-16 h-16 rounded-2xl transition-all z-50 shadow-xl border-2 flex items-center justify-center ${
-                            isSpeaking
-                              ? "bg-red-500 text-white hover:bg-red-600 border-red-600"
-                              : "bg-white text-[#009887] hover:bg-gray-50 border-gray-400"
-                          } hover:cursor-pointer`}
-                          title={isSpeaking ? "Detener audio - Toca para parar" : "Escuchar instrucciones - Toca para oír"}
-                          aria-label={isSpeaking ? "Detener audio" : "Escuchar instrucciones"}
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.95 }}
-                        >
-                          {isSpeaking ? (
-                            <Square size={32} className="text-white" />
-                          ) : (
-                            <Volume2 size={32} className="text-[#009887]" />
-                          )}
-                        </motion.button>
-                      )}
-                    </>
-                  );
-              }
-            })()}
-              </div>
+                    );
+                }
+              })()}
             </div>
-          </div>
 
-          {/* Footer con botones de navegación - Extendido por toda la pantalla - Grande para accesibilidad */}
-          <div className="bg-white rounded-2xl shadow-lg p-2 border-2 border-gray-200 flex-shrink-0 mt-1">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <motion.div 
-                className="flex items-center gap-2 flex-shrink-0"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 }}
-              >
-                <motion.span 
-                  className="text-2xl md:text-3xl"
-                  animate={{ 
-                    rotate: [0, 10, -10, 0],
-                    scale: [1, 1.1, 1]
-                  }}
-                  transition={{ 
-                    duration: 2,
-                    repeat: Infinity,
-                    repeatDelay: 3
-                  }}
-                >
-                  🎉
-                </motion.span>
-                <span className="font-bold text-base md:text-lg bg-gradient-to-r from-[#C90166] to-[#E91E63] bg-clip-text text-transparent whitespace-nowrap">
-                  ¡Excelente trabajo!
-                </span>
-              </motion.div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <motion.button
-                  data-tour="nav-previous-button"
-                  className="bg-gradient-to-r from-[#009887] to-[#00B8A9] hover:from-[#008577] hover:to-[#009887] disabled:from-gray-300 disabled:to-gray-400 hover:cursor-pointer disabled:cursor-not-allowed text-white px-6 py-3 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl disabled:shadow-none text-base md:text-lg min-w-[120px] md:min-w-[140px] border-2 border-transparent hover:border-white"
-                  disabled={isFirstExercise}
-                  onClick={previousExercise}
-                  title={isFirstExercise ? "No hay ejercicio anterior" : "Ir al ejercicio anterior"}
-                  aria-label="Ejercicio anterior"
-                  whileHover={!isFirstExercise ? { scale: 1.05 } : {}}
-                  whileTap={!isFirstExercise ? { scale: 0.95 } : {}}
-                >
-                  <ChevronLeft size={24} className="md:w-7 md:h-7" />
-                  <span className="hidden sm:inline">Anterior</span>
-                  <span className="sm:hidden">Ant.</span>
-                </motion.button>
-                <motion.button
-                  data-tour="nav-next-button"
-                  className="bg-gradient-to-r from-[#009887] to-[#00B8A9] hover:from-[#008577] hover:to-[#009887] disabled:from-gray-300 disabled:to-gray-400 hover:cursor-pointer disabled:cursor-not-allowed text-white px-6 py-3 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl disabled:shadow-none text-base md:text-lg min-w-[120px] md:min-w-[140px] border-2 border-transparent hover:border-white"
-                  disabled={isLastExercise}
-                  onClick={nextExercise}
-                  title={isLastExercise ? "No hay más ejercicios" : "Ir al siguiente ejercicio"}
-                  aria-label="Siguiente ejercicio"
-                  whileHover={!isLastExercise ? { scale: 1.05 } : {}}
-                  whileTap={!isLastExercise ? { scale: 0.95 } : {}}
-                >
-                  <span className="hidden sm:inline">Siguiente</span>
-                  <span className="sm:hidden">Sig.</span>
-                  <ChevronRight size={24} className="md:w-7 md:h-7" />
-                </motion.button>
-              </div>
-            </div>
+            {/* Flecha derecha - Siguiente */}
+            <motion.button
+              onClick={nextExercise}
+              disabled={isLastExercise}
+              className={`w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center shadow-xl transition-all flex-shrink-0 ${
+                isLastExercise
+                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-gradient-to-br from-[#009887] to-[#00B8A9] text-white hover:from-[#008577] hover:to-[#009887] cursor-pointer"
+              }`}
+              whileHover={!isLastExercise ? { scale: 1.1 } : {}}
+              whileTap={!isLastExercise ? { scale: 0.95 } : {}}
+              title={isLastExercise ? "No hay más ejercicios" : "Siguiente ejercicio"}
+            >
+              <ChevronRight size={48} className="md:w-14 md:h-14" />
+            </motion.button>
           </div>
         </motion.div>
       </AnimatePresence>
@@ -370,78 +328,89 @@ export default function ExerciseContent({ unitId }: ExerciseContentProps) {
               onClick={(e) => e.stopPropagation()}
               className="relative w-full h-full flex items-center justify-center p-4 z-10"
             >
-              {/* Botón de finalizar - Icono grande y claro para analfabetas */}
+              {/* Botón ROJO - Salir (X) - Esquina superior izquierda */}
               <motion.button
                 onClick={() => setIsFullscreenDrawing(false)}
-                className="absolute bottom-6 right-6 w-24 h-24 bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-full shadow-[0_8px_25px_rgba(34,197,94,0.4)] border-4 border-white flex items-center justify-center z-50 group"
+                className="absolute top-4 left-4 w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 rounded-full shadow-[0_8px_25px_rgba(239,68,68,0.4)] border-4 border-white flex items-center justify-center z-50"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
                 initial={{ opacity: 0, scale: 0 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ 
-                  type: "spring",
-                  stiffness: 300,
-                  damping: 15,
-                  delay: 0.5 
-                }}
+                transition={{ type: "spring", stiffness: 300, damping: 15, delay: 0.3 }}
+                title="Salir"
               >
-                <Check size={48} className="text-white stroke-[4px] drop-shadow-md" />
-                
-                {/* Onda de expansión para llamar la atención */}
-                <motion.div
-                  className="absolute inset-0 rounded-full border-4 border-green-400"
-                  animate={{
-                    scale: [1, 1.4, 1.4],
-                    opacity: [0.6, 0, 0],
-                  }}
-                  transition={{
-                    duration: 2,
-                    repeat: Infinity,
-                    ease: "easeOut",
-                  }}
-                />
+                <X size={32} className="text-white stroke-[4px] drop-shadow-md" />
               </motion.button>
 
-              {/* Botón grande de audio - para tablets y accesibilidad */}
+              {/* Botón AZUL - Audio instrucciones - Esquina superior derecha */}
               <motion.button
-                onClick={handleSpeakClick}
-                className={`absolute top-4 left-4 w-20 h-20 rounded-full flex items-center justify-center shadow-2xl transition-all z-20 ${
+                onClick={handleDrawingAudioClick}
+                className={`absolute top-4 right-4 w-16 h-16 rounded-full flex items-center justify-center shadow-[0_8px_25px_rgba(59,130,246,0.4)] border-4 border-white transition-all z-50 ${
                   isSpeaking
-                    ? "bg-red-500 hover:bg-red-600 text-white"
-                    : "bg-gradient-to-br from-[#009887] to-[#00B8A9] hover:from-[#008577] hover:to-[#009887] text-white"
+                    ? "bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700"
+                    : "bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
                 }`}
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
-                initial={{ opacity: 0, scale: 0.8 }}
+                initial={{ opacity: 0, scale: 0 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.2 }}
+                transition={{ type: "spring", stiffness: 300, damping: 15, delay: 0.4 }}
                 title={isSpeaking ? "Detener audio" : "Escuchar instrucciones"}
               >
                 {isSpeaking ? (
                   <>
-                    <Square size={40} />
-                    {/* Onda de sonido animada */}
+                    <Square size={28} className="text-white" />
                     <motion.div
-                      className="absolute inset-0 rounded-full border-4 border-red-400"
-                      animate={{
-                        scale: [1, 1.3, 1],
-                        opacity: [0.8, 0, 0.8],
-                      }}
-                      transition={{
-                        duration: 1.5,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                      }}
+                      className="absolute inset-0 rounded-full border-4 border-purple-400"
+                      animate={{ scale: [1, 1.3, 1], opacity: [0.8, 0, 0.8] }}
+                      transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
                     />
                   </>
                 ) : (
-                  <Volume2 size={40} />
+                  <Volume2 size={32} className="text-white" />
                 )}
               </motion.button>
 
-              {/* Contenedor del canvas en pantalla completa */}
-              <div className="relative w-full h-full max-w-[95vw] max-h-[95vh] bg-white rounded-xl shadow-2xl border border-gray-200 overflow-visible">
-                <div className="relative w-full h-full overflow-hidden">
+              {/* Botón NARANJA - Rehacer dibujo - Esquina inferior izquierda */}
+              <motion.button
+                onClick={handleClearCanvas}
+                className="absolute bottom-4 left-4 w-16 h-16 bg-gradient-to-br from-orange-400 to-orange-500 hover:from-orange-500 hover:to-orange-600 rounded-full shadow-[0_8px_25px_rgba(251,146,60,0.4)] border-4 border-white flex items-center justify-center z-50"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: "spring", stiffness: 300, damping: 15, delay: 0.5 }}
+                title="Borrar y empezar de nuevo"
+              >
+                <RotateCcw size={32} className="text-white stroke-[3px] drop-shadow-md" />
+              </motion.button>
+
+              {/* Botón VERDE - Confirmar/Guardar - Esquina inferior derecha */}
+              <motion.button
+                onClick={() => {
+                  // Aquí podrías guardar el dibujo antes de cerrar
+                  setIsFullscreenDrawing(false);
+                }}
+                className="absolute bottom-4 right-4 w-20 h-20 bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-full shadow-[0_8px_25px_rgba(34,197,94,0.4)] border-4 border-white flex items-center justify-center z-50"
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: "spring", stiffness: 300, damping: 15, delay: 0.6 }}
+                title="Guardar y continuar"
+              >
+                <Check size={40} className="text-white stroke-[4px] drop-shadow-md" />
+                {/* Onda de expansión para llamar la atención */}
+                <motion.div
+                  className="absolute inset-0 rounded-full border-4 border-green-400"
+                  animate={{ scale: [1, 1.4, 1.4], opacity: [0.6, 0, 0] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
+                />
+              </motion.button>
+
+              {/* Contenedor del canvas - con padding para no tocar los botones */}
+              <div className="relative w-[calc(100vw-8rem)] h-[calc(100vh-8rem)] max-w-full max-h-full bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden">
+                <div className="absolute inset-0 overflow-hidden">
                   <img
                     src={`/stub_images/${exercise?.img}`}
                     alt="ejercicio"
@@ -459,121 +428,6 @@ export default function ExerciseContent({ unitId }: ExerciseContentProps) {
                   />
                 </div>
               </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Modal de pantalla completa para audio */}
-      <AnimatePresence>
-        {isFullscreenAudio && (
-          <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-            {/* Backdrop con blur - clickeable para cerrar */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => {
-                setIsFullscreenAudio(false);
-                if (isSpeaking) cancel();
-              }}
-              className="absolute inset-0 backdrop-blur-lg"
-              style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.15)',
-              }}
-            />
-            
-            {/* Contenido del modal */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              transition={{ type: "spring", duration: 0.5 }}
-              onClick={(e) => e.stopPropagation()}
-              className="relative flex flex-col items-center justify-center gap-6 p-8 z-10"
-            >
-              {/* Botón de cerrar */}
-              <motion.button
-                onClick={() => {
-                  setIsFullscreenAudio(false);
-                  if (isSpeaking) cancel();
-                }}
-                className="absolute top-4 right-4 p-3 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800 rounded-full transition-all backdrop-blur-sm shadow-lg border border-gray-200"
-                whileHover={{ scale: 1.1, rotate: 90 }}
-                whileTap={{ scale: 0.9 }}
-              >
-                <X size={24} />
-              </motion.button>
-
-              {/* Título */}
-              <motion.h2
-                initial={{ y: -20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.2 }}
-                className="text-3xl md:text-4xl font-bold text-gray-900 text-center mb-4 drop-shadow-lg"
-              >
-                {exercise?.content.subtitle}
-              </motion.h2>
-
-              {/* Botón de audio grande */}
-              <motion.button
-                onClick={handleFullscreenAudioClick}
-                className={`relative w-32 h-32 md:w-40 md:h-40 rounded-full flex items-center justify-center shadow-2xl transition-all ${
-                  isSpeaking
-                    ? "bg-red-500 hover:bg-red-600"
-                    : "bg-white hover:bg-gray-50"
-                }`}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", delay: 0.3 }}
-              >
-                {isSpeaking ? (
-                  <>
-                    <Square size={64} className="text-red-600" />
-                    {/* Onda de sonido animada */}
-                    <motion.div
-                      className="absolute inset-0 rounded-full border-4 border-red-400"
-                      animate={{
-                        scale: [1, 1.5, 1],
-                        opacity: [0.8, 0, 0.8],
-                      }}
-                      transition={{
-                        duration: 1.5,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                      }}
-                    />
-                  </>
-                ) : (
-                  <Volume2 size={64} className="text-[#009887]" />
-                )}
-              </motion.button>
-
-              {/* Texto de instrucción */}
-              <motion.p
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.4 }}
-                className="text-gray-800 text-lg md:text-xl text-center max-w-md px-4 font-semibold drop-shadow-md"
-              >
-                Toca el botón para escuchar las instrucciones
-              </motion.p>
-
-              {/* Instrucción completa (opcional, más pequeña) */}
-              {exercise?.content.content && (
-                <motion.div
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.5 }}
-                  className="mt-4 p-4 bg-white bg-opacity-95 backdrop-blur-sm rounded-xl max-w-2xl shadow-xl border border-gray-200"
-                >
-                  <p className="text-gray-800 text-sm md:text-base text-center leading-relaxed font-medium">
-                    {exercise.content.content}
-                  </p>
-                </motion.div>
-              )}
             </motion.div>
           </div>
         )}
